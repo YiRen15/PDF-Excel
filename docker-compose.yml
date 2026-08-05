@@ -1,0 +1,14 @@
+version: '3.8'
+
+services:
+  ecg-parser-app:
+    build: .
+    container_name: ecg_pdf_parser_web
+    restart: always
+    ports:
+      - "5050:5050"
+    environment:
+      - PORT=5050
+      - TZ=Asia/Shanghai
+    volumes:
+      - ./随访心电记录仪检测记录_空模板.xlsx:/app/随访心电记录仪检测记录_空模板.xlsx

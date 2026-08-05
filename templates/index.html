@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>动态心电图 PDF 智能解析与导出系统 (医生端)</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="app-container">
+        <!-- 顶栏 Header -->
+        <header class="app-header">
+            <div class="brand">
+                <div class="logo-box">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+                    </svg>
+                </div>
+                <div class="brand-info">
+                    <div class="title-wrap">
+                        <h1>动态心电图智能解析系统</h1>
+                    </div>
+                    <p class="subtitle">智能判定（1窦性 / 2房颤 / 3规则房速 / 2,3复合多选）· 支持上千份报告并发提取</p>
+                </div>
+            </div>
+            <div class="header-actions">
+                <button id="download-btn" class="btn btn-emerald" disabled>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>
+                    </svg>
+                    <span>导出随访记录表 (.xlsx)</span>
+                </button>
+            </div>
+        </header>
+
+        <!-- 主界面容器 -->
+        <main class="main-layout">
+            <!-- 1. 文件上传卡片 -->
+            <section class="card">
+                <div class="card-header">
+                    <div class="step-title">
+                        <span class="step-badge">1</span>
+                        <h2>上传心电图 PDF 报告</h2>
+                    </div>
+                    <div class="tab-switcher">
+                        <button class="tab-item active" data-tab="files">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                            批量多文件拖拽
+                        </button>
+                        <button class="tab-item" data-tab="zip">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+                            ZIP 压缩包上传 (推荐批量)
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 多文件面板 (默认激活) -->
+                <div id="panel-files" class="tab-panel active">
+                    <div id="dropzone-files" class="dropzone-box">
+                        <input type="file" id="input-files" multiple accept=".pdf" class="hidden-file-input">
+                        <div class="dropzone-inner">
+                            <div class="icon-circle">
+                                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                                </svg>
+                            </div>
+                            <h3>点击选择 或 将多个 PDF 文件拖入此处</h3>
+                            <p class="desc">支持按 Shift / Ctrl / Cmd 键批量选择多个 .pdf 报告文件</p>
+                            <div id="selected-files-count" class="file-name-badge hidden"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ZIP 面板 -->
+                <div id="panel-zip" class="tab-panel">
+                    <div id="dropzone-zip" class="dropzone-box">
+                        <input type="file" id="input-zip" accept=".zip" multiple class="hidden-file-input">
+                        <div class="dropzone-inner">
+                            <div class="icon-circle">
+                                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/>
+                                </svg>
+                            </div>
+                            <h3>点击选择 或 将一个/多个 ZIP 压缩包拖入此处</h3>
+                            <p class="desc">支持同时拖入多个 .zip 压缩包，系统将自动为每个压缩包独立生成一份对应的 Excel 表格</p>
+                            <div id="selected-zip-name" class="file-name-badge hidden"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 操作栏 -->
+                <div class="action-footer">
+                    <button id="reset-btn" class="btn btn-secondary hidden">重置选择</button>
+                    <button id="start-parse-btn" class="btn btn-primary" disabled>
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
+                        </svg>
+                        开始并发智能识别
+                    </button>
+                </div>
+
+                <!-- 进度条 -->
+                <div id="progress-container" class="progress-box hidden">
+                    <div class="progress-header">
+                        <div class="progress-title">
+                            <div id="progress-status-icon-container">
+                                <div class="spin-loader"></div>
+                            </div>
+                            <span id="progress-status-text">正在解析报告，请稍候...</span>
+                        </div>
+                        <span id="progress-percent" class="percent-val">0%</span>
+                    </div>
+                    <div class="progress-track">
+                        <div id="progress-bar-fill" class="progress-bar-fill"></div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 2. 诊断统计卡片 -->
+            <section id="stats-section" class="stats-row hidden">
+                <div class="stat-box">
+                    <span class="stat-num" id="stat-total">0</span>
+                    <span class="stat-title">总解析报告份数</span>
+                </div>
+                <div class="stat-box stat-green">
+                    <span class="stat-num" id="stat-sinus">0</span>
+                    <span class="stat-title">1 窦性心律</span>
+                </div>
+                <div class="stat-box stat-amber">
+                    <span class="stat-num" id="stat-afib">0</span>
+                    <span class="stat-title">2 房颤</span>
+                </div>
+                <div class="stat-box stat-indigo">
+                    <span class="stat-num" id="stat-svt">0</span>
+                    <span class="stat-title">3 规则房速/房扑</span>
+                </div>
+                <div class="stat-box stat-purple">
+                    <span class="stat-num" id="stat-multi">0</span>
+                    <span class="stat-title">2,3 复合多选诊断</span>
+                </div>
+            </section>
+
+            <!-- 3. 数据表格卡片 -->
+            <section id="results-card" class="card hidden">
+                <div class="card-header">
+                    <div class="step-title">
+                        <span class="step-badge">2</span>
+                        <h2>数据预览与结果分析</h2>
+                    </div>
+                    <div class="filter-controls">
+                        <div class="search-input-wrap">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+                            <input type="text" id="search-input" placeholder="搜索受试者编号或文件名...">
+                        </div>
+                        <select id="filter-select" class="custom-select">
+                            <option value="all">全部分类筛选</option>
+                            <option value="1">🟢 1 窦性心律</option>
+                            <option value="2">🟠 2 房颤</option>
+                            <option value="3">🔵 3 规则房速/房扑</option>
+                            <option value="2,3">🟣 2,3 复合多选</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="table-container">
+                    <table class="styled-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 60px;">序号</th>
+                                <th>受试者编号 (SUBJID)</th>
+                                <th>开始监测日期</th>
+                                <th>监测时长</th>
+                                <th>检查结果</th>
+                                <th>诊断状态</th>
+                                <th>平均心率</th>
+                                <th>房扑房速负荷 (Col 27)</th>
+                                <th>最长持续时间 (时/分/秒)</th>
+                                <th style="width: 100px;">详情</th>
+                            </tr>
+                        </thead>
+                        <tbody id="table-body">
+                            <!-- JS 动态注入 -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="pagination-bar">
+                    <div class="page-info">
+                        显示第 <span id="page-start">0</span> - <span id="page-end">0</span> 条，共 <span id="page-total">0</span> 条记录
+                    </div>
+                    <div class="pagination-right">
+                        <label class="per-page-label">每页显示：
+                            <select id="page-size-select" class="custom-select compact">
+                                <option value="20">20 条</option>
+                                <option value="50" selected>50 条</option>
+                                <option value="100">100 条</option>
+                            </select>
+                        </label>
+                        <div class="btn-group">
+                            <button id="prev-page-btn" class="btn btn-secondary compact" disabled>上一页</button>
+                            <span id="current-page-num" class="page-current">1</span>
+                            <button id="next-page-btn" class="btn btn-secondary compact" disabled>下一页</button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- 详情 Modal -->
+    <div id="detail-modal" class="modal-backdrop hidden">
+        <div class="modal-window">
+            <div class="modal-top">
+                <h3 id="modal-title">患者详细提取参数列表</h3>
+                <button id="close-modal-btn" class="modal-close-icon">&times;</button>
+            </div>
+            <div id="modal-body" class="modal-content-area"></div>
+            <div class="modal-bottom">
+                <button id="modal-ok-btn" class="btn btn-primary">关闭</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>

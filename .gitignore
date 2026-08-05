@@ -1,0 +1,14 @@
+# Python
+venv/
+__pycache__/
+*.pyc
+.active_port
+
+# OS & Temp
+.DS_Store
+~$*.xlsx
+*.tmp
+
+# Release & Test Data
+*.zip
+安贞报告/
