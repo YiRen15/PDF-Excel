@@ -128,23 +128,29 @@ def parse_single_pdf(pdf_path):
         m_beats = re.search(r'分析的心搏数[:：](\d+)[(（]?次[)）]?', text_no_space)
         total_beats = int(m_beats.group(1)) if m_beats else 1
         
-        # 7. 房颤基础数据提取 (心搏、时长、打印占比检测)
-        m_af_beats = re.search(r'房颤心搏[:：](\d+)[(（]?次[)）]?', text_no_space)
+        # 7. 房颤基础数据提取 (切片隔离：绝不跨区扫描房扑/起搏)
+        af_sec_m = re.search(r'房颤分析.*?(?=房扑分析|起搏分析|室上性节律|室性节律|ST段分析|结论|$)', text_no_space)
+        af_sec = af_sec_m.group(0) if af_sec_m else text_no_space
+
+        fl_sec_m = re.search(r'房扑分析.*?(?=结论|24小时|报告医生|起搏分析|$)', text_no_space)
+        fl_sec = fl_sec_m.group(0) if fl_sec_m else text_no_space
+
+        m_af_beats = re.search(r'房颤心搏[:：](\d+)[(（]?次[)）]?', af_sec)
         if not m_af_beats:
-            m_af_beats = re.search(r'房颤心搏[:：](\d+)', text_no_space)
+            m_af_beats = re.search(r'房颤心搏[:：](\d+)', af_sec)
         af_beats = int(m_af_beats.group(1)) if m_af_beats else 0
         
         af_dur_str = ""
-        m_af_block = re.search(r'房颤分析.*?(?:持续时间|最长持续时间|时间)[:：]?(.*?)(?=发生次数|大于|房扑分析|结论|$)', text_no_space)
+        m_af_block = re.search(r'(?:持续时间|最长持续时间|时间)[:：]?(.*?)(?=发生次数|大于|$)', af_sec)
         if m_af_block:
             af_dur_str = m_af_block.group(1).strip()
             
         af_hours, af_mins, af_secs = parse_hms(af_dur_str)
         
-        has_printed_afib_text = bool(re.search(r'房颤.*?(?:占总心搏|占比)[:：]?\s*(?:小于|＜|<)\s*1', text_no_space))
-        m_af_pct_check = re.search(r'房颤心搏[:：]\d+[(（]?次[)）]?[,，]?\s*(?:占总心搏|占比)[:：]?(\d+(?:\.\d+)?)[(（]?[%％][)）]?', text_no_space)
+        has_printed_afib_text = bool(re.search(r'(?:占总心搏|占比)[:：]?\s*(?:小于|＜|<)\s*1', af_sec))
+        m_af_pct_check = re.search(r'房颤心搏[:：]\d+[(（]?次[)）]?[,，]?\s*(?:占总心搏|占比)[:：]?(\d+(?:\.\d+)?)[(（]?[%％][)）]?', af_sec)
         if not m_af_pct_check:
-            m_af_pct_check = re.search(r'房颤(?:占比|占总心搏)[:：]?(\d+(?:\.\d+)?)[%％]', text_no_space)
+            m_af_pct_check = re.search(r'(?:占比|占总心搏)[:：]?(\d+(?:\.\d+)?)[%％]', af_sec)
         has_printed_afib_val = bool(m_af_pct_check)
         
         # 8. 规则的房性心动过速 (室上速) 和 房扑
@@ -160,18 +166,18 @@ def parse_single_pdf(pdf_path):
             
         svt_active = (svt_dur_sec >= 30)
         
-        m_fl_beats = re.search(r'房扑心搏[:：](\d+)[(（]?次[)）]?,?\s*(?:占总心搏|占比)[:：]?(\d+(?:\.\d+)?)[(（]?[%％][)）]?', text_no_space)
+        m_fl_beats = re.search(r'房扑心搏[:：](\d+)[(（]?次[)）]?,?\s*(?:占总心搏|占比)[:：]?(\d+(?:\.\d+)?)[(（]?[%％][)）]?', fl_sec)
         if m_fl_beats:
             fl_beats = int(m_fl_beats.group(1))
             fl_burden = float(m_fl_beats.group(2))
         else:
-            m_fl_beats_only = re.search(r'房扑心搏[:：](\d+)', text_no_space)
+            m_fl_beats_only = re.search(r'房扑心搏[:：](\d+)', fl_sec)
             fl_beats = int(m_fl_beats_only.group(1)) if m_fl_beats_only else 0
-            m_fl_pct_only = re.search(r'房扑(?:占比|占总心搏)[:：]?(\d+(?:\.\d+)?)[%％]', text_no_space)
+            m_fl_pct_only = re.search(r'房扑(?:占比|占总心搏)[:：]?(\d+(?:\.\d+)?)[%％]', fl_sec)
             fl_burden = float(m_fl_pct_only.group(1)) if m_fl_pct_only else 0.0
             
         fl_dur_str = ""
-        fl_block_match = re.search(r'房扑分析.*?(?:持续时间|最长持续时间|时间)[:：]?(.*?)(?=发生次数|大于|结论|$)', text_no_space)
+        fl_block_match = re.search(r'(?:持续时间|最长持续时间|时间)[:：]?(.*?)(?=发生次数|大于|$)', fl_sec)
         if fl_block_match:
             fl_dur_str = fl_block_match.group(1).strip()
         
@@ -182,7 +188,7 @@ def parse_single_pdf(pdf_path):
         # 1. 房扑负荷原值/保底计算
         fl_burden_val = None
         if fl_active:
-            if re.search(r'房扑.*?(?:占总心搏|占比)[:：]?\s*(?:小于|＜|<)\s*1', text_no_space):
+            if re.search(r'(?:占总心搏|占比)[:：]?\s*(?:小于|＜|<)\s*1', fl_sec):
                 fl_burden_val = "小于1"
             elif fl_burden > 0:
                 if 0 < fl_burden < 1:
