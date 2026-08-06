@@ -224,12 +224,13 @@ def parse_single_pdf(pdf_path):
         # 9.2 仅在房速专属语句中提取最长持续时间
         concl_svt_dur_sec = 0
         if svt_clause_text:
-            m_concl_dur = re.search(r'(?:最长持续时间|最长时间|最长一阵|持续时间)[：:为]?([0-9:小时分秒sS]+)', svt_clause_text, re.I)
+            m_concl_dur = re.search(r'(?:最长持续时间|最长时间|最长一阵|持续时间)[：:为]?([0-9:小时分秒钟sS]+)', svt_clause_text, re.I)
             if m_concl_dur:
                 dur_raw = m_concl_dur.group(1)
-                _, _, d_sec = parse_hms(dur_raw)
-                if d_sec > 0:
-                    concl_svt_dur_sec = d_sec
+                d_h, d_m, d_s = parse_hms(dur_raw)
+                total_concl_sec = d_h * 3600 + d_m * 60 + d_s
+                if total_concl_sec > 0:
+                    concl_svt_dur_sec = total_concl_sec
                 else:
                     m_num = re.search(r'(\d+)', dur_raw)
                     concl_svt_dur_sec = int(m_num.group(1)) if m_num else 0
@@ -362,7 +363,7 @@ def parse_single_pdf(pdf_path):
 
             if fl_burden_val is not None and needs_svt_manual_check:
                 fl_str = f"{int(fl_burden_val)}" if isinstance(fl_burden_val, (int, float)) and float(fl_burden_val).is_integer() else f"{fl_burden_val}"
-                data['ECGATBURD'] = f"{fl_str} 报告房速负荷需要人工检查"
+                data['ECGATBURD'] = f"{fl_str}, 报告房速负荷需要人工检查"
                 data['ECGATBURD_U'] = "%"
             elif fl_burden_val is None and needs_svt_manual_check:
                 data['ECGATBURD'] = "报告房速负荷需要人工检查"
