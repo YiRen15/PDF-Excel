@@ -230,7 +230,7 @@ def parse_single_pdf(pdf_path):
         # 9.2 仅在房速专属语句中提取最长持续时间
         concl_svt_dur_sec = 0
         if svt_clause_text:
-            m_concl_dur = re.search(r'(?:最长持续时间|最长时间|最长一阵|持续时间)[：:为]?([0-9:小时分秒钟sS]+)', svt_clause_text, re.I)
+            m_concl_dur = re.search(r'(?:最长持续时间|最长时间|最长一阵|持续时间)[：:为]?([0-9:a-zA-Z小时分秒钟]+)', svt_clause_text, re.I)
             if m_concl_dur:
                 dur_raw = m_concl_dur.group(1)
                 d_h, d_m, d_s = parse_hms(dur_raw)
