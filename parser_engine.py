@@ -132,7 +132,7 @@ def parse_single_pdf(pdf_path):
         af_sec_m = re.search(r'房颤分析.*?(?=房扑分析|起搏分析|室上性节律|室性节律|ST段分析|结论|$)', text_no_space)
         af_sec = af_sec_m.group(0) if af_sec_m else text_no_space
 
-        fl_sec_m = re.search(r'房扑分析.*?(?=结论|24小时|报告医生|起搏分析|$)', text_no_space)
+        fl_sec_m = re.search(r'房扑分析.*?(?=结论|24小时数据图|24小时散点图|24小时趋势图|报告医生|起搏分析|$)', text_no_space)
         fl_sec = fl_sec_m.group(0) if fl_sec_m else text_no_space
 
         m_af_beats = re.search(r'房颤心搏[:：](\d+)[(（]?次[)）]?', af_sec)
