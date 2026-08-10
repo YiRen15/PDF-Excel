@@ -243,11 +243,12 @@ def parse_single_pdf(pdf_path):
 
         # 保底持续时间 (优先采用结论专属提取)
         effective_svt_dur_sec = max(concl_svt_dur_sec, svt_dur_sec)
+        svt_valid = (effective_svt_dur_sec >= 30)
 
-        # 8.2 持续时间相加与满60进位转化
-        svt_h = effective_svt_dur_sec // 3600 if (svt_active or effective_svt_dur_sec > 0) else 0
-        svt_m = (effective_svt_dur_sec % 3600) // 60 if (svt_active or effective_svt_dur_sec > 0) else 0
-        svt_s = effective_svt_dur_sec % 60 if (svt_active or effective_svt_dur_sec > 0) else 0
+        # 8.2 持续时间相加与满60进位转化 (房速最长持续时间必须 >= 30秒 才允许参与换算与累加)
+        svt_h = (effective_svt_dur_sec // 3600) if svt_valid else 0
+        svt_m = ((effective_svt_dur_sec % 3600) // 60) if svt_valid else 0
+        svt_s = (effective_svt_dur_sec % 60) if svt_valid else 0
 
         fl_h = fl_hours if fl_active else 0
         fl_m = fl_mins if fl_active else 0
