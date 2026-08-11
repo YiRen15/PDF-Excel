@@ -21,26 +21,47 @@ def parse_hms(dur_str):
         return 0, 0, 0
     dur_str = dur_str.strip()
     
-    # 格式 1: HH:MM:SS 或 HH:MM (例如 07:33:00 或 07:33)
+    # 1. 格式 1: HH:MM:SS 或 MM:SS (例如 07:33:00 或 07:33 或 18:53)
     m_time = re.search(r'(\d{1,2})[:：](\d{1,2})(?:[:：](\d{1,2}))?', dur_str)
     if m_time:
-        hours = int(m_time.group(1))
-        mins = int(m_time.group(2))
-        secs = int(m_time.group(3)) if m_time.group(3) else 0
-        return hours, mins, secs
+        if m_time.group(3):
+            return int(m_time.group(1)), int(m_time.group(2)), int(m_time.group(3))
+        else:
+            val1, val2 = int(m_time.group(1)), int(m_time.group(2))
+            if val1 >= 24:
+                return val1, val2, 0
+            else:
+                return 0, val1, val2
 
-    # 格式 2: 含有 小时/时/h, 分钟/分/m, 秒/s
+    # 2. 格式 2: 标准中英文单位 (含有 小时/时/h/H, 分钟/分/min/m/M, 秒/sec/s/S)
     hours, mins, secs = 0, 0, 0
     m_h = re.search(r'(\d+)\s*(?:小时|h|时)', dur_str, re.I)
     if m_h: hours = int(m_h.group(1))
     
-    m_m = re.search(r'(\d+)\s*(?:分钟?|m|分)', dur_str, re.I)
+    m_m = re.search(r'(\d+)\s*(?:分钟?|min|m|分)', dur_str, re.I)
     if m_m: mins = int(m_m.group(1))
     
-    m_s = re.search(r'(\d+)\s*(?:秒|s)', dur_str, re.I)
+    m_s = re.search(r'(\d+)\s*(?:秒|sec|s)', dur_str, re.I)
     if m_s: secs = int(m_s.group(1))
     
-    return hours, mins, secs
+    if hours > 0 or mins > 0 or secs > 0:
+        return hours, mins, secs
+
+    # 3. 格式 3: 单双引号符号简写 (例如 18'53" 或 18′53″ 或 18' 或 53")
+    m_sym = re.search(r"(?:(\d+)['′])?\s*(?:(\d+)[\"″])?", dur_str)
+    if m_sym and (m_sym.group(1) or m_sym.group(2)):
+        mins = int(m_sym.group(1)) if m_sym.group(1) else 0
+        secs = int(m_sym.group(2)) if m_sym.group(2) else 0
+        return 0, mins, secs
+
+    # 4. 格式 4: 智能多数字保底推算 (例如 18 53 提取出 18 分 53 秒)
+    nums = [int(n) for n in re.findall(r'\d+', dur_str)]
+    if len(nums) >= 2:
+        return 0, nums[0], nums[1]
+    elif len(nums) == 1:
+        return 0, 0, nums[0]
+    
+    return 0, 0, 0
 
 def parse_single_pdf(pdf_path):
     """
@@ -147,10 +168,10 @@ def parse_single_pdf(pdf_path):
             
         af_hours, af_mins, af_secs = parse_hms(af_dur_str)
         
-        has_printed_afib_text = bool(re.search(r'(?:占总心搏|占比)[:：]?\s*(?:小于|＜|<)\s*1', af_sec))
-        m_af_pct_check = re.search(r'房颤心搏[:：]\d+[(（]?次[)）]?[,，]?\s*(?:占总心搏|占比)[:：]?(\d+(?:\.\d+)?)[(（]?[%％][)）]?', af_sec)
+        has_printed_afib_text = bool(re.search(r'(?:占总心搏|占比|负荷)[:：]?\s*(?:小于|＜|<|不足)\s*1(?:\.0)?', af_sec))
+        m_af_pct_check = re.search(r'房颤心搏[:：]\d+[(（]?次[)）]?[,，]?\s*(?:占总心搏|占比|负荷)[:：]?(\d+(?:\.\d+)?)[(（]?[%％][)）]?', af_sec)
         if not m_af_pct_check:
-            m_af_pct_check = re.search(r'(?:占比|占总心搏)[:：]?(\d+(?:\.\d+)?)[%％]', af_sec)
+            m_af_pct_check = re.search(r'(?:占比|占总心搏|总占比|负荷)[:：]?(\d+(?:\.\d+)?)[%％]', af_sec)
         has_printed_afib_val = bool(m_af_pct_check)
         
         # 8. 规则的房性心动过速 (室上速) 和 房扑
@@ -166,14 +187,14 @@ def parse_single_pdf(pdf_path):
             
         svt_active = (svt_dur_sec >= 30)
         
-        m_fl_beats = re.search(r'房扑心搏[:：](\d+)[(（]?次[)）]?,?\s*(?:占总心搏|占比)[:：]?(\d+(?:\.\d+)?)[(（]?[%％][)）]?', fl_sec)
+        m_fl_beats = re.search(r'房扑心搏[:：](\d+)[(（]?次[)）]?,?\s*(?:占总心搏|占比|负荷)[:：]?(\d+(?:\.\d+)?)[(（]?[%％][)）]?', fl_sec)
         if m_fl_beats:
             fl_beats = int(m_fl_beats.group(1))
             fl_burden = float(m_fl_beats.group(2))
         else:
             m_fl_beats_only = re.search(r'房扑心搏[:：](\d+)', fl_sec)
             fl_beats = int(m_fl_beats_only.group(1)) if m_fl_beats_only else 0
-            m_fl_pct_only = re.search(r'房扑(?:占比|占总心搏)[:：]?(\d+(?:\.\d+)?)[%％]', fl_sec)
+            m_fl_pct_only = re.search(r'房扑(?:占比|占总心搏|总占比|负荷)[:：]?(\d+(?:\.\d+)?)[%％]', fl_sec)
             fl_burden = float(m_fl_pct_only.group(1)) if m_fl_pct_only else 0.0
             
         fl_dur_str = ""
@@ -188,7 +209,7 @@ def parse_single_pdf(pdf_path):
         # 1. 房扑负荷原值/保底计算
         fl_burden_val = None
         if fl_active:
-            if re.search(r'(?:占总心搏|占比)[:：]?\s*(?:小于|＜|<)\s*1', fl_sec):
+            if re.search(r'(?:占总心搏|占比|负荷)[:：]?\s*(?:小于|＜|<|不足)\s*1(?:\.0)?', fl_sec):
                 fl_burden_val = "小于1"
             elif fl_burden > 0:
                 if 0 < fl_burden < 1:
