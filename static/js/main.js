@@ -439,14 +439,31 @@ document.addEventListener('DOMContentLoaded', () => {
         nextPageBtn.disabled = (currentPage >= maxPage);
     }
 
-        prevPageBtn.disabled = (currentPage <= 1);
-        nextPageBtn.disabled = (currentPage >= maxPage);
-    }
-
     // 7. Show Detail Modal
     function showDetailModal(item) {
         if (!item) return;
         modalTitle.textContent = `患者 [ ${item.SUBJID || item._filename} ] 全提取参数详情`;
+
+        let html = '';
+        const warnings = item.warnings || [];
+        if (item.has_warning || warnings.length > 0 || (item.ECGATBURD && String(item.ECGATBURD).includes('人工检查'))) {
+            html += `
+                <div style="background: #fffbe6; border: 1.5px solid #fcd34d; border-radius: 8px; padding: 12px 16px; margin-bottom: 16px; color: #92400e; font-size: 13px;">
+                    <div style="font-weight: 700; display: flex; align-items: center; gap: 6px; margin-bottom: 4px;">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                        ⚠️ 人工核对警示提醒：
+                    </div>
+                    <ul style="margin-left: 20px; margin-top: 4px; line-height: 1.6;">
+            `;
+            if (warnings.length > 0) {
+                warnings.forEach(w => {
+                    html += `<li>${escapeHtml(w)}</li>`;
+                });
+            } else if (item.ECGATBURD && String(item.ECGATBURD).includes('人工检查')) {
+                html += `<li>报告结论确诊有房速且持续时间 >= 30s，但报告未打印房速占比原值，需人工核对</li>`;
+            }
+            html += `</ul></div>`;
+        }
 
         const displayKeys = [
             { label: '受试者编号 (SUBJID)', key: 'SUBJID' },
@@ -469,7 +486,7 @@ document.addEventListener('DOMContentLoaded', () => {
             { label: '规则房速最长持续时间 (秒)', key: 'ECGATDURS' }
         ];
 
-        let html = `<div class="grid-fields">`;
+        html += `<div class="grid-fields">`;
         displayKeys.forEach(dk => {
             const val = item[dk.key] !== undefined ? item[dk.key] : '/';
             html += `

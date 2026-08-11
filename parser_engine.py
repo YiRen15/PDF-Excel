@@ -248,6 +248,10 @@ def parse_single_pdf(pdf_path):
         if svt_clause_match:
             svt_clause_text = svt_clause_match.group(1)
 
+        # 初始化异常告警标志与告警日志
+        data['has_warning'] = False
+        data['warnings'] = []
+
         # 9.2 仅在房速专属语句中提取最长持续时间
         concl_svt_dur_sec = 0
         if svt_clause_text:
@@ -260,7 +264,11 @@ def parse_single_pdf(pdf_path):
                     concl_svt_dur_sec = total_concl_sec
                 else:
                     m_num = re.search(r'(\d+)', dur_raw)
-                    concl_svt_dur_sec = int(m_num.group(1)) if m_num else 0
+                    if m_num:
+                        concl_svt_dur_sec = int(m_num.group(1))
+                    if dur_raw:
+                        data['has_warning'] = True
+                        data['warnings'].append(f"发现未识别的持续时间格式 '{dur_raw}'，需人工核对")
 
         # 保底持续时间 (优先采用结论专属提取)
         effective_svt_dur_sec = max(concl_svt_dur_sec, svt_dur_sec)
@@ -388,6 +396,10 @@ def parse_single_pdf(pdf_path):
         if has_3:
             # 触发房速人工检查提示的 3 个条件：1. 结论肯定有房速 2. 房速持续时间 >= 30s 3. 报告未打印房速占比原值
             needs_svt_manual_check = has_svt_in_conclusion and (effective_svt_dur_sec >= 30) and (svt_burden_val is None)
+
+            if needs_svt_manual_check:
+                data['has_warning'] = True
+                data['warnings'].append("报告结论确诊有房速且持续时间 >= 30s，但报告未打印房速占比原值，需要人工核对")
 
             if fl_burden_val is not None and needs_svt_manual_check:
                 fl_str = f"{int(fl_burden_val)}" if isinstance(fl_burden_val, (int, float)) and float(fl_burden_val).is_integer() else f"{fl_burden_val}"
