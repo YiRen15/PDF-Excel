@@ -258,6 +258,18 @@ document.addEventListener('DOMContentLoaded', () => {
         xhr.send(formData);
     });
 
+    const warningNoticeBanner = document.getElementById('warning-notice-banner');
+    const warningNoticeText = document.getElementById('warning-notice-text');
+    const btnFilterWarning = document.getElementById('btn-filter-warning');
+
+    if (btnFilterWarning) {
+        btnFilterWarning.addEventListener('click', () => {
+            filterSelect.value = 'warning';
+            applyFilterAndRender();
+            resultsCard.scrollIntoView({ behavior: 'smooth' });
+        });
+    }
+
     // 4. Update Analytics Stats Cards
     function updateStats(stats) {
         document.getElementById('stat-total').textContent = stats.total || 0;
@@ -265,6 +277,18 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('stat-afib').textContent = stats.afib_2 || 0;
         document.getElementById('stat-svt').textContent = stats.svt_3 || 0;
         document.getElementById('stat-multi').textContent = stats.multi || 0;
+        
+        const statWarning = document.getElementById('stat-warning');
+        if (statWarning) {
+            statWarning.textContent = stats.warning_count || 0;
+        }
+
+        if (stats.warning_count > 0) {
+            warningNoticeText.textContent = `本次解析检测到 ${stats.warning_count} 份报告需要人工核对负荷或持续时间，已为您自动高亮标注！`;
+            warningNoticeBanner.classList.remove('hidden');
+        } else {
+            warningNoticeBanner.classList.add('hidden');
+        }
     }
 
     // 5. Filter & Pagination Logic
@@ -289,6 +313,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 matchFilter = cleanCode.split(',').includes('3');
             } else if (filterVal === '2,3') {
                 matchFilter = (cleanCode.includes(','));
+            } else if (filterVal === 'warning') {
+                matchFilter = Boolean(item.has_warning || (item.ECGATBURD && String(item.ECGATBURD).includes('人工检查')) || (item.warnings && item.warnings.length > 0));
             }
 
             return matchQuery && matchFilter;
@@ -340,6 +366,11 @@ document.addEventListener('DOMContentLoaded', () => {
             pageItems.forEach((item, idx) => {
                 const tr = document.createElement('tr');
                 
+                const isWarning = Boolean(item.has_warning || (item.ECGATBURD && String(item.ECGATBURD).includes('人工检查')) || (item.warnings && item.warnings.length > 0));
+                if (isWarning) {
+                    tr.classList.add('row-warning');
+                }
+
                 const code = String(item.ECGORRES || '/').trim();
                 const cleanCode = code.replace(/\[|\]/g, '').trim();
                 let badgeClass = 'badge-none';
@@ -370,15 +401,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 const atM = (item.ECGATDUR !== undefined && item.ECGATDUR !== null && item.ECGATDUR !== '') ? item.ECGATDUR : (cleanCode.includes('3') ? '0' : '/');
                 const atS = (item.ECGATDURS !== undefined && item.ECGATDURS !== null && item.ECGATDURS !== '') ? item.ECGATDURS : (cleanCode.includes('3') ? '0' : '/');
 
+                let atBurdHtml = escapeHtml(String(atBurd));
+                if (String(atBurd).includes('人工检查')) {
+                    atBurdHtml = `<span class="tag-warn-cell">${escapeHtml(String(atBurd))}</span>`;
+                }
+
                 tr.innerHTML = `
                     <td>${startIdx + idx + 1}</td>
-                    <td><strong>${escapeHtml(item.SUBJID || item._filename || '/')}</strong></td>
+                    <td><strong>${escapeHtml(item.SUBJID || item._filename || '/')}</strong> ${isWarning ? '<span class="warn-pill-sm">⚠️ 需核对</span>' : ''}</td>
                     <td>${escapeHtml(item.ECGSTDAT || '/')}</td>
                     <td>${escapeHtml(String(durH))} 小时 ${escapeHtml(String(durM))} 分</td>
                     <td><code>${escapeHtml(code)}</code></td>
                     <td><span class="badge ${badgeClass}">${badgeText}</span></td>
                     <td>${escapeHtml(String(item.ECGHR !== undefined && item.ECGHR !== null ? item.ECGHR : '/'))}</td>
-                    <td><pre style="margin:0; font-family:inherit; font-size:12px;">${escapeHtml(String(atBurd))}</pre></td>
+                    <td><pre style="margin:0; font-family:inherit; font-size:12px;">${atBurdHtml}</pre></td>
                     <td><pre style="margin:0; font-family:inherit; font-size:12px;">时: ${escapeHtml(String(atH))} | 分: ${escapeHtml(String(atM))} | 秒: ${escapeHtml(String(atS))}</pre></td>
                     <td><button class="btn-link" data-index="${startIdx + idx}">查看详情</button></td>
                 `;
@@ -398,6 +434,10 @@ document.addEventListener('DOMContentLoaded', () => {
         pageEnd.textContent = endIdx;
         pageTotal.textContent = total;
         currentPageNum.textContent = `${currentPage} / ${maxPage}`;
+
+        prevPageBtn.disabled = (currentPage <= 1);
+        nextPageBtn.disabled = (currentPage >= maxPage);
+    }
 
         prevPageBtn.disabled = (currentPage <= 1);
         nextPageBtn.disabled = (currentPage >= maxPage);

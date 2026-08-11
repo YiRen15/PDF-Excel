@@ -141,7 +141,24 @@
                     <span class="stat-num" id="stat-multi">0</span>
                     <span class="stat-title">2,3 复合多选诊断</span>
                 </div>
+                <div class="stat-box stat-red" id="stat-warning-card">
+                    <span class="stat-num" id="stat-warning">0</span>
+                    <span class="stat-title">⚠️ 需人工检查/告警</span>
+                </div>
             </section>
+
+            <!-- 警示通知 Banner -->
+            <div id="warning-notice-banner" class="warning-banner hidden">
+                <div class="warning-banner-inner">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#d97706" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                        <line x1="12" y1="9" x2="12" y2="13"></line>
+                        <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                    </svg>
+                    <span id="warning-notice-text">本次解析检测到需要人工核对负荷或持续时间的报告，已为您自动高亮标注。</span>
+                </div>
+                <button id="btn-filter-warning" class="btn btn-warning-action">一键筛选告警项</button>
+            </div>
 
             <!-- 3. 数据表格卡片 -->
             <section id="results-card" class="card hidden">
@@ -161,6 +178,7 @@
                             <option value="2">🟠 2 房颤</option>
                             <option value="3">🔵 3 规则房速/房扑</option>
                             <option value="2,3">🟣 2,3 复合多选</option>
+                            <option value="warning">⚠️ 仅看需人工检查/告警</option>
                         </select>
                     </div>
                 </div>

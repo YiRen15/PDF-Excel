@@ -100,7 +100,8 @@ def upload_and_process():
             "sinus_1": sum(1 for r in all_results if str(r.get('ECGORRES')).replace('[', '').replace(']', '').strip() == '1'),
             "afib_2": sum(1 for r in all_results if '2' in str(r.get('ECGORRES')).replace('[', '').replace(']', '').split(',')),
             "svt_3": sum(1 for r in all_results if '3' in str(r.get('ECGORRES')).replace('[', '').replace(']', '').split(',')),
-            "multi": sum(1 for r in all_results if ',' in str(r.get('ECGORRES')))
+            "multi": sum(1 for r in all_results if ',' in str(r.get('ECGORRES'))),
+            "warning_count": sum(1 for r in all_results if r.get('has_warning') or '需人工检查' in str(r.get('ECGATBURD')) or '需要人工检查' in str(r.get('ECGATBURD')) or (r.get('warnings') and len(r.get('warnings')) > 0))
         }
         
         return jsonify({
