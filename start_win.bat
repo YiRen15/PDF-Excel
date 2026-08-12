@@ -7,43 +7,43 @@ echo ==================================================
 echo.
 
 if not exist "app.py" (
-    echo.
-    echo [错误] 未在当前文件夹找到 app.py 主程序！
-    echo --------------------------------------------------
-    echo 请务必将 ZIP 压缩包【解压到文件夹后】，再双击运行本脚本！
-    echo （不能在压缩包内部直接双击运行）
-    echo --------------------------------------------------
-    echo.
+    echo [错误] 未找到 app.py 文件，请先将 ZIP 压缩包解压后再运行！
     pause
     goto :end
 )
 
 if exist .active_port del .active_port
 
+:: 1. 检查 Python 是否可用
 python --version >nul 2>&1
 if %errorlevel% neq 0 (
-    echo.
     echo [错误] 未在当前电脑检测到 Python 环境！
-    echo --------------------------------------------------
     echo 请先安装 Python: https://www.python.org/downloads/
-    echo 安装时请勾选 "Add python.exe to PATH"
-    echo --------------------------------------------------
-    echo.
+    echo （安装时务必勾选 "Add python.exe to PATH"）
     pause
     goto :end
 )
 
-:: 检查并自动安装缺失的解析组件包 (Flask / OpenPyXL / PyMuPDF)
-python -c "import flask, openpyxl, fitz, pdfplumber" >nul 2>&1
-if %errorlevel% neq 0 (
-    echo [提示] 正在自动安装核心组件包 (Flask/OpenPyXL/PyMuPDF)，首次配置约需 5 秒...
+:: 2. 如果当前文件夹没有 venv 虚拟环境，自动为本台电脑创建专属 venv
+if not exist "venv\Scripts\python.exe" (
+    echo [提示] 正在在当前电脑创建专属解析环境 (首次配置约需 5-10 秒)...
+    if exist venv rmdir /s /q venv >nul 2>&1
+    python -m venv venv
+    echo [1/2] 专属解析环境创建完成！
+    echo [2/2] 正在自动安装核心组件 (Flask/OpenPyXL/PyMuPDF)...
+    call venv\Scriptsctivate.bat
     python -m pip install -i https://pypi.tuna.tsinghua.edu.cn/simple flask openpyxl pymupdf pdfplumber
-    echo [提示] 组件包安装完成！
-    echo.
+    echo [提示] 所有环境与组件配置完毕！
+    echo --------------------------------------------------
 )
 
+:: 3. 启动后台解析服务
 echo [提示] 正在启动后台服务引擎...
-start /b python app.py
+if exist "venv\Scripts\python.exe" (
+    start /b venv\Scripts\python.exe app.py
+) else (
+    start /b python app.py
+)
 
 timeout /t 3 /nobreak >nul
 
