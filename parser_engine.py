@@ -8,6 +8,8 @@ import openpyxl
 from openpyxl.styles import Alignment, Border, Side, Font
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
+__version__ = "1.01.00"
+
 # 优先使用 C 语言编写的 10 倍极速 PyMuPDF 引擎，若未安装则自动回退至 pdfplumber
 try:
     import fitz

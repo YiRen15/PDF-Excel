@@ -5,10 +5,10 @@ exit /b
 
 :main
 setlocal enabledelayedexpansion
-title 动态心电图 PDF 转 Excel Web 诊断启动工具
+title 动态心电图 PDF 转 Excel Web 诊断启动工具 (PDF-Excel 1.01.00)
 
 echo ==================================================
-echo    动态心电图 PDF 转 Excel - 系统深度诊断与启动
+echo    动态心电图 PDF 转 Excel - 系统深度诊断与启动 [版本: PDF-Excel 1.01.00]
 echo ==================================================
 echo.
 echo [诊断日志] 启动时间: %DATE% %TIME%

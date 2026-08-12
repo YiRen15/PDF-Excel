@@ -16,6 +16,8 @@ STATIC_DIR = os.path.join(BASE_DIR, 'static')
 app = Flask(__name__, template_folder=TEMPLATE_DIR, static_folder=STATIC_DIR)
 app.config['MAX_CONTENT_LENGTH'] = 4096 * 1024 * 1024
 
+APP_VERSION = "PDF-Excel 1.01.00"
+
 PARSED_CACHE = {
     "data": [],
     "total": 0
