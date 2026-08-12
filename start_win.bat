@@ -4,7 +4,7 @@ cmd /k ""%~f0" RUN"
 exit /b
 
 :main
-title 动态心电图 PDF 转 Excel Web 诊断启动工具
+title 动态心电图 PDF 转 Excel Web 启动工具
 
 echo ==================================================
 echo    动态心电图 PDF 转 Excel - 系统深度诊断与启动
@@ -37,20 +37,42 @@ if exist "parser_engine.py" (
 echo.
 
 :: --------------------------------------------------
-:: 步骤 2: 搜寻系统中的 Python 解释器路径
+:: 步骤 2: 搜寻系统中的 Python 解释器路径 (全盘自动野蛮搜索)
 :: --------------------------------------------------
 echo ===== 步骤 2: 检索 Python 路径 =====
 set "PY_EXE="
 
-if exist "%LOCALAPPDATA%\Programs\Python\Python314\python.exe" set "PY_EXE=%LOCALAPPDATA%\Programs\Python\Python314\python.exe"
-if "%PY_EXE%"=="" if exist "%LOCALAPPDATA%\Programs\Python\Python313\python.exe" set "PY_EXE=%LOCALAPPDATA%\Programs\Python\Python313\python.exe"
-if "%PY_EXE%"=="" if exist "%LOCALAPPDATA%\Programs\Python\Python312\python.exe" set "PY_EXE=%LOCALAPPDATA%\Programs\Python\Python312\python.exe"
-if "%PY_EXE%"=="" where python >nul 2>&1 && set "PY_EXE=python"
-if "%PY_EXE%"=="" where py >nul 2>&1 && set "PY_EXE=py"
+:: 1) 检查系统默认全局 python 命令
+python -c "import sys" >nul 2>&1
+if %errorlevel% equ 0 set "PY_EXE=python"
+
+:: 2) 检查 Windows 启动器 py 命令
+if "%PY_EXE%"=="" (
+    py -c "import sys" >nul 2>&1
+    if %errorlevel% equ 0 set "PY_EXE=py"
+)
+
+:: 3) 通配符递归全搜索 AppData 目录下的所有 Python 版本的 python.exe
+if "%PY_EXE%"=="" (
+    if exist "%LOCALAPPDATA%\Programs\Python" (
+        for /f "delims=" %%f in ('dir /b /s "%LOCALAPPDATA%\Programs\Python\python.exe" 2^>nul') do (
+            if exist "%%f" set "PY_EXE=%%f"
+        )
+    )
+)
+
+:: 4) 全搜索 C:\Program Files\Python 目录
+if "%PY_EXE%"=="" (
+    if exist "C:\Program Files\Python" (
+        for /f "delims=" %%f in ('dir /b /s "C:\Program Files\Python\python.exe" 2^>nul') do (
+            if exist "%%f" set "PY_EXE=%%f"
+        )
+    )
+)
 
 if "%PY_EXE%"=="" (
     echo.
-    echo   [错误] 无法在您的电脑中查找到已安装的 Python 环境！
+    echo   [错误] 未能在您的电脑中检索到有效的 Python 解释器！
     echo   请确认已安装 Python (下载地址: https://www.python.org/downloads/)
     echo   安装时务必勾选 "Add python.exe to PATH"
     echo.
@@ -58,7 +80,7 @@ if "%PY_EXE%"=="" (
     exit /b
 )
 
-echo   [OK] 成功找到并锁定 Python 路径: "%PY_EXE%"
+echo   [OK] 成功找到并锁定 Python 解释器路径: "%PY_EXE%"
 "%PY_EXE%" --version
 echo.
 
