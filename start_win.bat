@@ -33,6 +33,15 @@ if %errorlevel% neq 0 (
     goto :end
 )
 
+:: 检查并自动安装缺失的解析组件包 (Flask / OpenPyXL / PyMuPDF)
+python -c "import flask, openpyxl, fitz, pdfplumber" >nul 2>&1
+if %errorlevel% neq 0 (
+    echo [提示] 正在自动安装核心组件包 (Flask/OpenPyXL/PyMuPDF)，首次配置约需 5 秒...
+    python -m pip install -i https://pypi.tuna.tsinghua.edu.cn/simple flask openpyxl pymupdf pdfplumber
+    echo [提示] 组件包安装完成！
+    echo.
+)
+
 echo [提示] 正在启动后台服务引擎...
 start /b python app.py
 
