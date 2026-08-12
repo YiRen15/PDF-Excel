@@ -21,18 +21,23 @@ def parse_hms(dur_str):
         return 0, 0, 0
     dur_str = str(dur_str).strip()
     
-    # 1. 中文/英文单位优先匹配 (支持 23小时45分12秒、23小时45分、45分12秒、30秒、23h45m12s 等)
-    m_h = re.search(r'(\d+)\s*(?:小时|h|时)', dur_str, re.I)
+    # 1. 中/英文单位显式匹配 (支持带小数 23.5小时、23小时45分12秒、23h45m12s 等)
+    m_h = re.search(r'(\d+(?:\.\d+)?)\s*(?:小时|h|时)', dur_str, re.I)
     m_m = re.search(r'(\d+)\s*(?:分钟?|min|分|m(?!s))', dur_str, re.I)
     m_s = re.search(r'(\d+)\s*(?:秒|sec|s)', dur_str, re.I)
     
     if m_h or m_m or m_s:
-        hours = int(m_h.group(1)) if m_h else 0
+        hours = 0
         mins = int(m_m.group(1)) if m_m else 0
         secs = int(m_s.group(1)) if m_s else 0
+        if m_h:
+            h_val = float(m_h.group(1))
+            hours = int(h_val)
+            if '.' in m_h.group(1) and not m_m:
+                mins = int(round((h_val - hours) * 60))
         return hours, mins, secs
 
-    # 2. 冒号隔开的时间串: HH:MM:SS 或 HH:MM (如 23:45:12, 23:45, 07:33:00, 23：44)
+    # 2. 冒号分隔匹配: HH:MM:SS 或 HH:MM (如 23:45:12, 23:45, 07:33:00, 23：44)
     m_time = re.search(r'(\d{1,2})[:：](\d{1,2})(?:[:：](\d{1,2}))?', dur_str)
     if m_time:
         if m_time.group(3):
