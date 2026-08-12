@@ -9,7 +9,7 @@ echo.
 
 if exist .active_port del .active_port
 
-:: 1. 检查当前电脑是否安装了 Python
+:: 1. 检查当前电脑是否安装了系统 Python
 python --version >nul 2>&1
 if %errorlevel% neq 0 (
     echo [错误] 未在当前电脑检测到 Python 环境！
@@ -24,19 +24,23 @@ if %errorlevel% neq 0 (
     exit /b 1
 )
 
-:: 2. 检测现有 venv 虚拟环境是否对当前电脑有效 (防止发给别人因路径不同报错)
+:: 2. 检查现有 venv 文件夹中的主控 Python 路径是否在当前电脑上真实存在
 set NEED_REBUILD=0
-if exist "venv\Scripts\python.exe" (
-    venv\Scripts\python.exe -c "import sys" >nul 2>&1
-    if %errorlevel% neq 0 (
-        echo [提示] 检测到跨电脑转移的旧环境路径在当前电脑上不兼容，正在自动重置...
-        set NEED_REBUILD=1
+
+if exist "venv\pyvenv.cfg" (
+    for /f "usebackq tokens=1,* delims==" %%A in ("venv\pyvenv.cfg") do (
+        set "CFG_KEY=%%A"
+        set "CFG_VAL=%%B"
+        call :check_cfg_path
     )
+) else if exist "venv" (
+    set NEED_REBUILD=1
 ) else (
     set NEED_REBUILD=1
 )
 
 if "%NEED_REBUILD%"=="1" (
+    echo [提示] 检测到旧环境路径在当前电脑上不存在或失效，正在自动清理重置...
     if exist venv rmdir /s /q venv >nul 2>&1
     echo [提示] 正在在当前电脑配置专属 Python 解析环境，请稍候...
     python -m venv venv
@@ -74,3 +78,16 @@ echo ==================================================
 echo.
 
 pause
+exit /b 0
+
+:check_cfg_path
+set "CFG_KEY=%CFG_KEY: =%"
+if /i "%CFG_KEY%"=="home" (
+    set "TARGET_PATH=%CFG_VAL:~1%"
+    if not exist "%TARGET_PATH%" set NEED_REBUILD=1
+)
+if /i "%CFG_KEY%"=="executable" (
+    set "TARGET_PATH=%CFG_VAL:~1%"
+    if not exist "%TARGET_PATH%" set NEED_REBUILD=1
+)
+goto :eof
