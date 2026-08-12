@@ -1,4 +1,5 @@
 @echo off
+setlocal enabledelayedexpansion
 chcp 936 >nul
 title 动态心电图 PDF 转 Excel Web 启动工具
 
@@ -9,19 +10,22 @@ echo.
 
 if exist .active_port del .active_port
 
-:: 1. 智能寻找 Windows 上的 Python 解释器 (优先 py -> 其次 python)
+:: 1. 智能检测系统的 Python 解释器
 set PY_CMD=
-py -3 --version >nul 2>&1
-if %errorlevel% equ 0 (
-    set PY_CMD=py -3
-) else (
-    python --version >nul 2>&1
-    if %errorlevel% equ 0 (
-        set PY_CMD=python
-    )
+python --version >nul 2>&1
+if !errorlevel! equ 0 set PY_CMD=python
+
+if "!PY_CMD!"=="" (
+    py -3 --version >nul 2>&1
+    if !errorlevel! equ 0 set PY_CMD=py -3
 )
 
-if "%PY_CMD%"=="" (
+if "!PY_CMD!"=="" (
+    py --version >nul 2>&1
+    if !errorlevel! equ 0 set PY_CMD=py
+)
+
+if "!PY_CMD!"=="" (
     echo.
     echo ==================================================
     echo [错误] 未在当前电脑检测到已安装的 Python 环境！
@@ -36,22 +40,22 @@ if "%PY_CMD%"=="" (
     goto :end
 )
 
-echo [提示] 检测到 Python 解释器: %PY_CMD%
+echo [提示] 成功调起系统 Python 解释器: !PY_CMD!
 echo.
 
 :: 2. 检查并自动安装缺失的解析组件 (Flask / OpenPyXL / PyMuPDF)
 echo [提示] 正在检查后台解析组件包...
-%PY_CMD% -c "import flask, openpyxl, fitz, pdfplumber" >nul 2>&1
-if %errorlevel% neq 0 (
+!PY_CMD! -c "import flask, openpyxl, fitz, pdfplumber" >nul 2>&1
+if !errorlevel! neq 0 (
     echo [提示] 正在为您自动安装必备组件 (Flask/OpenPyXL/PyMuPDF)...
-    %PY_CMD% -m pip install -i https://pypi.tuna.tsinghua.edu.cn/simple flask openpyxl pymupdf pdfplumber
+    !PY_CMD! -m pip install -i https://pypi.tuna.tsinghua.edu.cn/simple flask openpyxl pymupdf pdfplumber
     echo [提示] 组件安装完毕！
     echo.
 )
 
 :: 3. 启动后台解析服务
 echo [提示] 正在启动后台服务引擎...
-start /b %PY_CMD% app.py
+start /b !PY_CMD! app.py
 
 timeout /t 3 /nobreak >nul
 
