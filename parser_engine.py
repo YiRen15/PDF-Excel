@@ -650,10 +650,11 @@ def write_weekly_summary_excel(all_parsed_results, start_dates_dict, template_pa
     """
     依据《统计模板.xlsx》与《起始日期表》计算 52 周房颤/房速复发周报汇总表:
     1. 彻底清空模板第 2 行及以后的示例数据；
-    2. 只有诊断包含【规则 2 (房颤)】或【规则 3 (规则房速/房扑)】的报告才算复发；
-    3. 按 7 天为一周算得归属周次 (0..51 映射 第1周..第52周)；
-    4. 同周多报告换行符 '\\n' 拼接；
-    5. 设置居中/自动换行并依据最大行数自适应行高！
+    2. 汇总所有受试者（包括起始日期表与解析出的报告）；
+    3. 判定是否复发（包含规则 2 房颤 或 规则 3 规则房速/房扑）；
+    4. 按 7 天为一周算得归属周次 (0..51 映射 第1周..第52周)；
+    5. 同周多报告换行符 '\n' 拼接；
+    6. 设置居中/自动换行并依据最大行数自适应行高！
     """
     wb = openpyxl.load_workbook(template_path)
     ws = wb.active
@@ -672,31 +673,53 @@ def write_weekly_summary_excel(all_parsed_results, start_dates_dict, template_pa
     align_center = Alignment(horizontal='center', vertical='center')
     
     subj_data = {}
+    
+    # 1. 包含所有在《起始日期表》中的受试者
+    if start_dates_dict:
+        for s_id in start_dates_dict:
+            clean_sid = str(s_id).replace('-', '').strip()
+            if clean_sid and clean_sid not in subj_data:
+                subj_data[clean_sid] = {
+                    'subjid': clean_sid,
+                    'age': '/',
+                    'has_recurrence': False,
+                    'reports': []
+                }
+
+    # 2. 遍历解析出的所有 PDF 报告
     for r in all_parsed_results:
         subjid_clean = str(r.get('SUBJID', '')).replace('-', '').strip()
         if not subjid_clean or subjid_clean == '/':
             subjid_clean = str(r.get('_filename', '')).replace('-', '').strip()
             
-        code_raw = str(r.get('ECGORRES', '')).replace('[', '').replace(']', '').strip()
-        codes = [c.strip() for c in code_raw.split(',') if c.strip()]
-        
-        # 仅规则 2 或 规则 3 算复发！
-        if not ('2' in codes or '3' in codes):
+        if not subjid_clean:
             continue
-            
+
         if subjid_clean not in subj_data:
             age = r.get('AGE') or r.get('ECGANAG') or '/'
             subj_data[subjid_clean] = {
                 'subjid': subjid_clean,
                 'age': age,
+                'has_recurrence': False,
                 'reports': []
             }
-            
-        st_dat = str(r.get('ECGSTDAT', '')).strip()
-        subj_data[subjid_clean]['reports'].append({
-            'st_dat': st_dat,
-            'code': code_raw
-        })
+        else:
+            if subj_data[subjid_clean]['age'] == '/':
+                age = r.get('AGE') or r.get('ECGANAG') or '/'
+                if age != '/':
+                    subj_data[subjid_clean]['age'] = age
+
+        code_raw = str(r.get('ECGORRES', '')).replace('[', '').replace(']', '').strip()
+        codes = [c.strip() for c in code_raw.split(',') if c.strip()]
+        
+        # 规则 2 (房颤) 或 规则 3 (规则房速/房扑) 属于复发！
+        if '2' in codes or '3' in codes:
+            subj_data[subjid_clean]['has_recurrence'] = True
+            st_dat = str(r.get('ECGSTDAT', '')).strip()
+            subj_data[subjid_clean]['reports'].append({
+                'st_dat': st_dat,
+                'code': code_raw
+            })
 
     current_row = 2
     for subjid, pinfo in sorted(subj_data.items(), key=lambda x: x[0]):
@@ -739,7 +762,7 @@ def write_weekly_summary_excel(all_parsed_results, start_dates_dict, template_pa
                 
         c_name = ws.cell(current_row, 1, subjid)
         c_age = ws.cell(current_row, 2, pinfo['age'])
-        c_recur = ws.cell(current_row, 3, '是')
+        c_recur = ws.cell(current_row, 3, '是' if pinfo['has_recurrence'] else '否')
         
         for c_cell in [c_name, c_age, c_recur]:
             c_cell.font = font_body
@@ -750,7 +773,8 @@ def write_weekly_summary_excel(all_parsed_results, start_dates_dict, template_pa
         for w in range(52):
             col_idx = 4 + w
             reports_in_w = weeks_reports[w]
-            cell_val = '\n'.join(reports_in_w) if reports_in_w else ''
+            cell_val = '
+'.join(reports_in_w) if reports_in_w else ''
             c_w = ws.cell(current_row, col_idx, cell_val)
             c_w.font = font_body
             c_w.alignment = align_center_wrap
