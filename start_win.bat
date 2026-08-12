@@ -1,4 +1,5 @@
 @echo off
+setlocal enabledelayedexpansion
 if "%~1"=="RUN" goto :main
 cmd /k ""%~f0" RUN"
 exit /b
@@ -42,44 +43,42 @@ echo.
 echo ===== 步骤 2: 检索 Python 路径 =====
 set "PY_EXE="
 
-where python >nul 2>&1
-if %errorlevel% equ 0 (
-    for /f "delims=" %%i in ('where python') do (
-        if "!PY_EXE!"=="" set "PY_EXE=%%i"
-    )
-    echo   [OK] 通过环境变量找到 python: !PY_EXE!
+if exist "%LOCALAPPDATA%\Programs\Python\Python314\python.exe" (
+    set "PY_EXE=%LOCALAPPDATA%\Programs\Python\Python314\python.exe"
+    echo   [OK] 在 AppData 中找到 Python 3.14
 )
 
-if "%PY_EXE%"=="" (
-    if exist "%LOCALAPPDATA%\Programs\Python\Python314\python.exe" (
-        set "PY_EXE=%LOCALAPPDATA%\Programs\Python\Python314\python.exe"
-        echo   [OK] 在 AppData 中找到 Python 3.14: !PY_EXE!
-    )
-)
-
-if "%PY_EXE%"=="" (
+if "!PY_EXE!"=="" (
     if exist "%LOCALAPPDATA%\Programs\Python\Python313\python.exe" (
         set "PY_EXE=%LOCALAPPDATA%\Programs\Python\Python313\python.exe"
-        echo   [OK] 在 AppData 中找到 Python 3.13: !PY_EXE!
+        echo   [OK] 在 AppData 中找到 Python 3.13
     )
 )
 
-if "%PY_EXE%"=="" (
+if "!PY_EXE!"=="" (
     if exist "%LOCALAPPDATA%\Programs\Python\Python312\python.exe" (
         set "PY_EXE=%LOCALAPPDATA%\Programs\Python\Python312\python.exe"
-        echo   [OK] 在 AppData 中找到 Python 3.12: !PY_EXE!
+        echo   [OK] 在 AppData 中找到 Python 3.12
     )
 )
 
-if "%PY_EXE%"=="" (
-    where py >nul 2>&1
-    if %errorlevel% equ 0 (
+if "!PY_EXE!"=="" (
+    python --version >nul 2>&1
+    if !errorlevel! equ 0 (
+        set "PY_EXE=python"
+        echo   [OK] 通过环境变量找到 python
+    )
+)
+
+if "!PY_EXE!"=="" (
+    py --version >nul 2>&1
+    if !errorlevel! equ 0 (
         set "PY_EXE=py"
         echo   [OK] 找到 Windows 启动器 py
     )
 )
 
-if "%PY_EXE%"=="" (
+if "!PY_EXE!"=="" (
     echo.
     echo   [错误] 无法在您的电脑中查找到已安装的 Python 环境！
     echo   请确认已安装 Python (下载地址: https://www.python.org/downloads/)
@@ -89,24 +88,18 @@ if "%PY_EXE%"=="" (
     exit /b
 )
 
-echo [诊断日志] 最终选用的 Python 路径: "%PY_EXE%"
-"%PY_EXE%" --version
+echo   [诊断日志] 成功调起 Python 解释器: "!PY_EXE!"
+"!PY_EXE!" --version
 echo.
 
 :: --------------------------------------------------
 :: 步骤 3: 测试 Python 依赖组件
 :: --------------------------------------------------
 echo ===== 步骤 3: 测试核心组件库 (Flask/OpenPyXL/PyMuPDF) =====
-"%PY_EXE%" -c "import flask, openpyxl, fitz, pdfplumber; print('  [OK] 所有核心依赖组件库检测完毕，完全正常！')" >nul 2>&1
-if %errorlevel% neq 0 (
-    echo   [提示] 正在测试检测缺失的组件细节:
-    "%PY_EXE%" -c "import flask" >nul 2>&1 || echo   [缺失] Flask
-    "%PY_EXE%" -c "import openpyxl" >nul 2>&1 || echo   [缺失] openpyxl
-    "%PY_EXE%" -c "import fitz" >nul 2>&1 || echo   [缺失] PyMuPDF (fitz)
-    "%PY_EXE%" -c "import pdfplumber" >nul 2>&1 || echo   [缺失] pdfplumber
-    echo.
+"!PY_EXE!" -c "import flask, openpyxl, fitz, pdfplumber; print('  [OK] 所有核心依赖组件库检测完毕，完全正常！')" >nul 2>&1
+if !errorlevel! neq 0 (
     echo   [提示] 正在自动为您下载安装缺失依赖 (使用清华国内极速镜像源)...
-    "%PY_EXE%" -m pip install -i https://pypi.tuna.tsinghua.edu.cn/simple flask openpyxl pymupdf pdfplumber
+    "!PY_EXE!" -m pip install -i https://pypi.tuna.tsinghua.edu.cn/simple flask openpyxl pymupdf pdfplumber
     echo   [OK] 组件安装完成！
 ) else (
     echo   [OK] 依赖库全部完整预备就绪！
@@ -120,7 +113,7 @@ echo ===== 步骤 4: 启动 Flask 后端 Web 服务 =====
 echo [提示] 正在调起应用程序，请观察下方输出日志...
 echo --------------------------------------------------
 
-"%PY_EXE%" app.py
+"!PY_EXE!" app.py
 
 echo.
 echo ==================================================
