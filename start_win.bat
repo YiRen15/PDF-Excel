@@ -9,34 +9,49 @@ echo.
 
 if exist .active_port del .active_port
 
-:: 1. 检查当前电脑是否安装了系统 Python
-python --version >nul 2>&1
-if %errorlevel% neq 0 (
-    echo [错误] 未在当前电脑检测到 Python 环境！
+:: 1. 智能寻找 Windows 上的 Python 解释器 (优先 py -> 其次 python)
+set PY_CMD=
+py -3 --version >nul 2>&1
+if %errorlevel% equ 0 (
+    set PY_CMD=py -3
+) else (
+    python --version >nul 2>&1
+    if %errorlevel% equ 0 (
+        set PY_CMD=python
+    )
+)
+
+if "%PY_CMD%"=="" (
+    echo.
+    echo ==================================================
+    echo [错误] 未在当前电脑检测到已安装的 Python 环境！
     echo --------------------------------------------------
-    echo 请先安装 Python:
+    echo 请先安装 Python (只需安装一次):
     echo 1. 下载地址: https://www.python.org/downloads/
-    echo 2. 安装时请务必勾选 "Add python.exe to PATH"
-    echo 3. 安装完成后双击本脚本即可自动启动。
-    echo --------------------------------------------------
+    echo 2. 安装时务必勾选 "Add python.exe to PATH"
+    echo 3. 安装完成后重新双击本脚本即可。
+    echo ==================================================
     echo.
     pause
-    exit /b 1
+    goto :end
 )
 
-:: 2. 检测并确保 Flask / OpenPyXL / PyMuPDF 依赖已安装
-echo [提示] 正在检查后台解析组件 (Flask / OpenPyXL / PyMuPDF)...
-python -c "import flask, openpyxl, fitz, pdfplumber" >nul 2>&1
+echo [提示] 检测到 Python 解释器: %PY_CMD%
+echo.
+
+:: 2. 检查并自动安装缺失的解析组件 (Flask / OpenPyXL / PyMuPDF)
+echo [提示] 正在检查后台解析组件包...
+%PY_CMD% -c "import flask, openpyxl, fitz, pdfplumber" >nul 2>&1
 if %errorlevel% neq 0 (
-    echo [提示] 检测到当前电脑缺失解析组件，正在自动下载安装 (约需 5-10 秒)...
-    python -m pip install -i https://pypi.tuna.tsinghua.edu.cn/simple flask openpyxl pymupdf pdfplumber
-    echo [提示] 依赖组件安装完成！
-    echo --------------------------------------------------
+    echo [提示] 正在为您自动安装必备组件 (Flask/OpenPyXL/PyMuPDF)...
+    %PY_CMD% -m pip install -i https://pypi.tuna.tsinghua.edu.cn/simple flask openpyxl pymupdf pdfplumber
+    echo [提示] 组件安装完毕！
+    echo.
 )
 
-:: 3. 启动 Flask Web 后台引擎
-echo [提示] 正在启动后台解析引擎...
-start /b python app.py
+:: 3. 启动后台解析服务
+echo [提示] 正在启动后台服务引擎...
+start /b %PY_CMD% app.py
 
 timeout /t 3 /nobreak >nul
 
@@ -56,3 +71,5 @@ echo ==================================================
 echo.
 
 pause
+
+:end
