@@ -855,13 +855,14 @@ tr.row-warning {
                     <p class="subtitle">智能判定（1窦性 / 2房颤 / 3规则房速 / 2,3复合多选）· 支持上千份报告并发提取</p>
                 </div>
             </div>
-            <div class="header-actions">
+            <div class="header-actions" style="display: flex; gap: 10px;">
                 <button id="download-btn" class="btn btn-emerald" disabled>
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>
                     </svg>
                     <span>导出随访记录表 (.xlsx)</span>
                 </button>
+
             </div>
         </header>
 
@@ -914,7 +915,7 @@ tr.row-warning {
                                 </svg>
                             </div>
                             <h3>点击选择 或 将一个/多个 ZIP 压缩包拖入此处</h3>
-                            <p class="desc">支持同时拖入多个 .zip 压缩包，系统将自动批量解压解析</p>
+                            <p class="desc">支持同时拖入多个 .zip 压缩包，系统将自动为每个压缩包独立生成一份对应的 Excel 表格</p>
                             <div id="selected-zip-name" class="file-name-badge hidden"></div>
                         </div>
                     </div>
@@ -948,111 +949,110 @@ tr.row-warning {
                 </div>
             </section>
 
-            <!-- 需人工检查警告 Banner -->
-            <div id="warning-notice-banner" class="warning-banner hidden" style="margin-bottom: 20px;">
-                <div class="warning-banner-content" style="display: flex; align-items: center; justify-content: space-between; gap: 15px;">
-                    <div style="display: flex; align-items: center; gap: 12px;">
-                        <span class="warning-badge-pulse">⚠️ 人工复核提醒</span>
-                        <span id="warning-notice-text" style="font-size: 14px; font-weight: 500; color: #9a3412;">本次解析检测到需要人工核对负荷或持续时间的报告，已为您自动高亮标注！</span>
-                    </div>
-                    <button id="btn-filter-warning" class="btn btn-sm btn-warning-outline">只看需要核对的报告</button>
-                </div>
-            </div>
+            
 
-            <!-- 统计分析卡片集 -->
-            <section id="stats-section" class="stats-grid hidden">
-                <div class="stat-card total">
-                    <div class="stat-title">解析报告总数</div>
-                    <div class="stat-value" id="stat-total">0</div>
-                    <div class="stat-desc">已成功处理的 PDF 数量</div>
+            <!-- 2. 诊断统计卡片 -->
+            <section id="stats-section" class="stats-row hidden">
+                <div class="stat-box">
+                    <span class="stat-num" id="stat-total">0</span>
+                    <span class="stat-title">总解析报告份数</span>
                 </div>
-                <div class="stat-card sinus">
-                    <div class="stat-title">1 窦性心律</div>
-                    <div class="stat-value" id="stat-sinus">0</div>
-                    <div class="stat-desc">无心房颤动/规则房速</div>
+                <div class="stat-box stat-green">
+                    <span class="stat-num" id="stat-sinus">0</span>
+                    <span class="stat-title">1 窦性心律</span>
                 </div>
-                <div class="stat-card afib">
-                    <div class="stat-title">2 心房颤动</div>
-                    <div class="stat-value" id="stat-afib">0</div>
-                    <div class="stat-desc">包含阵发/持续心房颤动</div>
+                <div class="stat-box stat-amber">
+                    <span class="stat-num" id="stat-afib">0</span>
+                    <span class="stat-title">2 房颤</span>
                 </div>
-                <div class="stat-card svt">
-                    <div class="stat-title">3 规则房速</div>
-                    <div class="stat-value" id="stat-svt">0</div>
-                    <div class="stat-desc">包含房扑与房速 (>=30s)</div>
+                <div class="stat-box stat-indigo">
+                    <span class="stat-num" id="stat-svt">0</span>
+                    <span class="stat-title">3 规则房速/房扑</span>
                 </div>
-                <div class="stat-card multi">
-                    <div class="stat-title">2,3 复合多选</div>
-                    <div class="stat-value" id="stat-multi">0</div>
-                    <div class="stat-desc">同时包含房颤与规则房速</div>
+                <div class="stat-box stat-purple">
+                    <span class="stat-num" id="stat-multi">0</span>
+                    <span class="stat-title">2,3 复合多选诊断</span>
                 </div>
-                <div class="stat-card warning">
-                    <div class="stat-title">⚠️ 需人工检查</div>
-                    <div class="stat-value" id="stat-warning">0</div>
-                    <div class="stat-desc">未打印占比原值需人工复核</div>
+                <div class="stat-box stat-red" id="stat-warning-card">
+                    <span class="stat-num" id="stat-warning">0</span>
+                    <span class="stat-title">⚠️ 需人工检查/告警</span>
                 </div>
             </section>
 
-            <!-- 2. 解析结果表格卡片 -->
+            <!-- 警示通知 Banner -->
+            <div id="warning-notice-banner" class="warning-banner hidden">
+                <div class="warning-banner-inner">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#d97706" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                        <line x1="12" y1="9" x2="12" y2="13"></line>
+                        <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                    </svg>
+                    <span id="warning-notice-text">本次解析检测到需要人工核对负荷或持续时间的报告，已为您自动高亮标注。</span>
+                </div>
+                <button id="btn-filter-warning" class="btn btn-warning-action">一键筛选告警项</button>
+            </div>
+
+            <!-- 3. 数据表格卡片 -->
             <section id="results-card" class="card hidden">
-                <div class="card-header table-header-wrap">
+                <div class="card-header">
                     <div class="step-title">
                         <span class="step-badge">2</span>
-                        <h2>解析提取结果预览</h2>
+                        <h2>数据预览与结果分析</h2>
                     </div>
-                    <div class="table-controls">
-                        <div class="search-box">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                    <div class="filter-controls">
+                        <div class="search-input-wrap">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
                             <input type="text" id="search-input" placeholder="搜索受试者编号或文件名...">
                         </div>
                         <select id="filter-select" class="custom-select">
-                            <option value="all">全部诊断类型 (All)</option>
-                            <option value="1">1 - 窦性心律 (Sinus)</option>
-                            <option value="2">2 - 心房颤动 (AFib)</option>
-                            <option value="3">3 - 规则房速 (SVT/Flutter)</option>
-                            <option value="2,3">2,3 - 复合多选 (Combined)</option>
-                            <option value="warning">⚠️ 包含人工检查警告 (Warnings)</option>
-                        </select>
-                        <select id="page-size-select" class="custom-select compact">
-                            <option value="20">每页 20 条</option>
-                            <option value="50" selected>每页 50 条</option>
-                            <option value="100">每页 100 条</option>
+                            <option value="all">全部分类筛选</option>
+                            <option value="1">🟢 1 窦性心律</option>
+                            <option value="2">🟠 2 房颤</option>
+                            <option value="3">🔵 3 规则房速/房扑</option>
+                            <option value="2,3">🟣 2,3 复合多选</option>
+                            <option value="warning">⚠️ 仅看需人工检查/告警</option>
                         </select>
                     </div>
                 </div>
 
-                <div class="card-body padding-none">
-                    <div class="table-responsive">
-                        <table class="data-table">
-                            <thead>
-                                <tr>
-                                    <th>受试者编号</th>
-                                    <th>年龄</th>
-                                    <th>诊断编码</th>
-                                    <th>诊断描述</th>
-                                    <th>监测时间区间</th>
-                                    <th>监测时长</th>
-                                    <th>房颤负荷 / 最时长</th>
-                                    <th>规则房速负荷 / 最时长</th>
-                                    <th>警告提醒</th>
-                                    <th style="text-align: center;">操作</th>
-                                </tr>
-                            </thead>
-                            <tbody id="table-body">
-                                <!-- 动态注入 -->
-                            </tbody>
-                        </table>
-                    </div>
+                <div class="table-container">
+                    <table class="styled-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 60px;">序号</th>
+                                <th>受试者编号 (SUBJID)</th>
+                                <th>开始监测日期</th>
+                                <th>监测时长</th>
+                                <th>检查结果</th>
+                                <th>诊断状态</th>
+                                <th>平均心率</th>
+                                <th>房扑房速负荷 (Col 27)</th>
+                                <th>最长持续时间 (时/分/秒)</th>
+                                <th style="width: 100px;">详情</th>
+                            </tr>
+                        </thead>
+                        <tbody id="table-body">
+                            <!-- JS 动态注入 -->
+                        </tbody>
+                    </table>
+                </div>
 
-                    <!-- 分页组件 Footer -->
-                    <div class="pagination-bar">
-                        <div class="pagination-info">
-                            显示第 <span id="page-start">0</span> - <span id="page-end">0</span> 条，共 <span id="page-total">0</span> 条
-                        </div>
-                        <div class="pagination-controls">
-                            <button id="prev-page-btn" class="btn-page" disabled>上一页</button>
-                            <span class="page-num" id="current-page-num">1</span>
-                            <button id="next-page-btn" class="btn-page" disabled>下一页</button>
+                <div class="pagination-bar">
+                    <div class="page-info">
+                        显示第 <span id="page-start">0</span> - <span id="page-end">0</span> 条，共 <span id="page-total">0</span> 条记录
+                    </div>
+                    <div class="pagination-right">
+                        <label class="per-page-label">每页显示：
+                            <select id="page-size-select" class="custom-select compact">
+                                <option value="20">20 条</option>
+                                <option value="50" selected>50 条</option>
+                                <option value="100">100 条</option>
+                            </select>
+                        </label>
+                        <div class="btn-group">
+                            <button id="prev-page-btn" class="btn btn-secondary compact" disabled>上一页</button>
+                            <span id="current-page-num" class="page-current">1</span>
+                            <button id="next-page-btn" class="btn btn-secondary compact" disabled>下一页</button>
                         </div>
                     </div>
                 </div>
@@ -1060,18 +1060,49 @@ tr.row-warning {
         </main>
     </div>
 
-    <!-- 详情弹窗 Modal -->
+    <!-- 详情 Modal -->
     <div id="detail-modal" class="modal-backdrop hidden">
-        <div class="modal-box">
-            <div class="modal-header">
-                <h3 id="modal-title">报告解析完整结构化数据</h3>
-                <button id="close-modal-btn" class="close-btn">&times;</button>
+        <div class="modal-window">
+            <div class="modal-top">
+                <h3 id="modal-title">患者详细提取参数列表</h3>
+                <button id="close-modal-btn" class="modal-close-icon">&times;</button>
             </div>
-            <div class="modal-body" id="modal-body">
-                <!-- 注入详情 -->
+            <div id="modal-body" class="modal-content-area"></div>
+            <div class="modal-bottom">
+                <button id="modal-ok-btn" class="btn btn-primary">关闭</button>
             </div>
-            <div class="modal-footer">
-                <button id="modal-ok-btn" class="btn btn-secondary">关闭窗口</button>
+        </div>
+    </div>
+
+    <!-- 起始日期管理 Modal -->
+    <div id="start-dates-modal" class="modal-backdrop hidden">
+        <div class="modal-window wide">
+            <div class="modal-top">
+                <h3>受试者起始日期库 (去横杠后匹配)</h3>
+                <button id="close-start-dates-modal-btn" class="modal-close-icon">&times;</button>
+            </div>
+            <div class="modal-content-area">
+                <div class="modal-filter-row" style="display: flex; justify-content: space-between; gap: 10px; margin-bottom: 12px;">
+                    <input type="text" id="search-start-dates-input" class="custom-input" style="flex: 1;" placeholder="搜索受试者编号 (如 01001)...">
+                    <button id="add-start-date-row-btn" class="btn btn-secondary compact">+ 手动添加受试者起始日期</button>
+                </div>
+                <div style="max-height: 350px; overflow-y: auto; border: 1px solid var(--border-subtle); border-radius: var(--radius-sm);">
+                    <table class="styled-table compact">
+                        <thead>
+                            <tr>
+                                <th style="width: 180px;">受试者编号 (去横杠后)</th>
+                                <th>起始日期 (YYYY-MM-DD)</th>
+                                <th style="width: 80px;">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="start-dates-table-body">
+                            <!-- JS 动态注入 -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-bottom">
+                <button id="save-start-dates-btn" class="btn btn-primary">保存修改</button>
             </div>
         </div>
     </div>
