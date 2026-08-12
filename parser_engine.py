@@ -101,6 +101,11 @@ def parse_single_pdf(pdf_path):
             m = re.search(r'(?:用户姓名|受试者姓名|患者姓名|姓名)[:：](.*)', text_no_space)
         data['SUBJID'] = m.group(1) if m and m.group(1) else ""
         
+        # 1.1 年龄提取
+        m_age = re.search(r'年龄[:：](\d+)[岁岁]?', text_no_space)
+        data['AGE'] = int(m_age.group(1)) if m_age else "/"
+        data['ECGANAG'] = data['AGE']
+        
         # 2. 开始监测日期 (yyyy-MM-dd HH:mm)
         m = re.search(r'(?:记录日期|测试日期|监测日期|检测日期)[:：](\d{4}[-/.]\d{2}[-/.]\d{2})(\d{2}:\d{2})', text_no_space)
         if m:
@@ -599,3 +604,164 @@ def extract_zip(zip_path, extract_to):
             if f.lower().endswith('.pdf') and not f.startswith('._'):
                 pdf_paths.append(os.path.join(root, f))
     return pdf_paths
+
+import datetime
+
+def parse_start_date_file(file_path_or_bytes):
+    """
+    解析用户上传的《起始日期表.xlsx》或 CSV 文件:
+    1. 自动去除受试者编号中的 '-' 横杠 (例如 01-001 -> 01001)；
+    2. 提取第二列对应的起始日期，返回 { '01001': datetime.date(2025, 8, 21), ... }
+    """
+    start_dates = {}
+    try:
+        wb = openpyxl.load_workbook(file_path_or_bytes, data_only=True)
+        ws = wb.active
+        for r in range(1, ws.max_row + 1):
+            cell_id = ws.cell(r, 1).value
+            cell_date = ws.cell(r, 2).value
+            if cell_id is None or cell_date is None:
+                continue
+            
+            id_str = str(cell_id).replace('-', '').strip()
+            if id_str in ['受试者编号', '编号', 'SUBJID', '姓名', '患者编号']:
+                continue
+                
+            d_obj = None
+            if isinstance(cell_date, (datetime.date, datetime.datetime)):
+                d_obj = cell_date.date() if isinstance(cell_date, datetime.datetime) else cell_date
+            else:
+                try:
+                    s_str = str(cell_date).split(' ')[0].replace('/', '-').replace('.', '-')
+                    parts = [int(x) for x in s_str.split('-')]
+                    if len(parts) == 3:
+                        d_obj = datetime.date(parts[0], parts[1], parts[2])
+                except Exception:
+                    pass
+            if d_obj:
+                start_dates[id_str] = d_obj
+        wb.close()
+    except Exception as e:
+        print(f"解析起始日期表出错: {e}")
+    return start_dates
+
+
+def write_weekly_summary_excel(all_parsed_results, start_dates_dict, template_path, output_excel_path):
+    """
+    依据《统计模板.xlsx》与《起始日期表》计算 52 周房颤/房速复发周报汇总表:
+    1. 彻底清空模板第 2 行及以后的示例数据；
+    2. 只有诊断包含【规则 2 (房颤)】或【规则 3 (规则房速/房扑)】的报告才算复发；
+    3. 按 7 天为一周算得归属周次 (0..51 映射 第1周..第52周)；
+    4. 同周多报告换行符 '\\n' 拼接；
+    5. 设置居中/自动换行并依据最大行数自适应行高！
+    """
+    wb = openpyxl.load_workbook(template_path)
+    ws = wb.active
+    
+    if ws.max_row > 1:
+        ws.delete_rows(2, ws.max_row)
+        
+    thin_border = Border(
+        left=Side(style='thin', color='D9D9D9'),
+        right=Side(style='thin', color='D9D9D9'),
+        top=Side(style='thin', color='D9D9D9'),
+        bottom=Side(style='thin', color='D9D9D9')
+    )
+    font_body = Font(name='宋体', size=11)
+    align_center_wrap = Alignment(horizontal='center', vertical='center', wrap_text=True)
+    align_center = Alignment(horizontal='center', vertical='center')
+    
+    subj_data = {}
+    for r in all_parsed_results:
+        subjid_clean = str(r.get('SUBJID', '')).replace('-', '').strip()
+        if not subjid_clean or subjid_clean == '/':
+            subjid_clean = str(r.get('_filename', '')).replace('-', '').strip()
+            
+        code_raw = str(r.get('ECGORRES', '')).replace('[', '').replace(']', '').strip()
+        codes = [c.strip() for c in code_raw.split(',') if c.strip()]
+        
+        # 仅规则 2 或 规则 3 算复发！
+        if not ('2' in codes or '3' in codes):
+            continue
+            
+        if subjid_clean not in subj_data:
+            age = r.get('AGE') or r.get('ECGANAG') or '/'
+            subj_data[subjid_clean] = {
+                'subjid': subjid_clean,
+                'age': age,
+                'reports': []
+            }
+            
+        st_dat = str(r.get('ECGSTDAT', '')).strip()
+        subj_data[subjid_clean]['reports'].append({
+            'st_dat': st_dat,
+            'code': code_raw
+        })
+
+    current_row = 2
+    for subjid, pinfo in sorted(subj_data.items(), key=lambda x: x[0]):
+        s_date = start_dates_dict.get(subjid) if start_dates_dict else None
+        
+        # 如果用户未在起始日期表中录入该受试者，默认以该受试者最早的报告日期做起点
+        if not s_date and pinfo['reports']:
+            valid_dates = []
+            for r_item in pinfo['reports']:
+                try:
+                    d_part = r_item['st_dat'].split(' ')[0].replace('/', '-').replace('.', '-')
+                    y, m, d = [int(x) for x in d_part.split('-')]
+                    valid_dates.append(datetime.date(y, m, d))
+                except Exception:
+                    pass
+            if valid_dates:
+                s_date = min(valid_dates)
+                
+        weeks_reports = [[] for _ in range(52)]
+        
+        for r_item in pinfo['reports']:
+            st_str = r_item['st_dat']
+            if not st_str or st_str == '/':
+                continue
+            try:
+                d_part = st_str.split(' ')[0].replace('/', '-').replace('.', '-')
+                y, m, d = [int(x) for x in d_part.split('-')]
+                r_date = datetime.date(y, m, d)
+                
+                if s_date:
+                    delta_days = (r_date - s_date).days
+                    if delta_days >= 0:
+                        w_idx = (delta_days // 7)
+                        if 0 <= w_idx < 52:
+                            weeks_reports[w_idx].append(st_str)
+                else:
+                    weeks_reports[0].append(st_str)
+            except Exception:
+                pass
+                
+        c_name = ws.cell(current_row, 1, subjid)
+        c_age = ws.cell(current_row, 2, pinfo['age'])
+        c_recur = ws.cell(current_row, 3, '是')
+        
+        for c_cell in [c_name, c_age, c_recur]:
+            c_cell.font = font_body
+            c_cell.alignment = align_center
+            c_cell.border = thin_border
+            
+        max_lines_in_row = 1
+        for w in range(52):
+            col_idx = 4 + w
+            reports_in_w = weeks_reports[w]
+            cell_val = '\n'.join(reports_in_w) if reports_in_w else ''
+            c_w = ws.cell(current_row, col_idx, cell_val)
+            c_w.font = font_body
+            c_w.alignment = align_center_wrap
+            c_w.border = thin_border
+            
+            if reports_in_w:
+                max_lines_in_row = max(max_lines_in_row, len(reports_in_w))
+                
+        ws.row_dimensions[current_row].height = max(28, max_lines_in_row * 18 + 8)
+        current_row += 1
+        
+    wb.save(output_excel_path)
+    wb.close()
+    return output_excel_path

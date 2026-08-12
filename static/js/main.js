@@ -522,8 +522,176 @@ document.addEventListener('DOMContentLoaded', () => {
             .replace(/"/g, '&quot;');
     }
 
-    // 8. Download Excel Action
+    const downloadWeeklyBtn = document.getElementById('download-weekly-btn');
+    const inputStartdates = document.getElementById('input-startdates');
+    const dropzoneStartdates = document.getElementById('dropzone-startdates');
+    const startDatesStatusBadge = document.getElementById('start-dates-status-badge');
+
+    const manageStartDatesBtn = document.getElementById('manage-start-dates-btn');
+    const startDatesModal = document.getElementById('start-dates-modal');
+    const closeStartDatesModalBtn = document.getElementById('close-start-dates-modal-btn');
+    const saveStartDatesBtn = document.getElementById('save-start-dates-btn');
+    const searchStartDatesInput = document.getElementById('search-start-dates-input');
+    const addStartDateRowBtn = document.getElementById('add-start-date-row-btn');
+    const startDatesTableBody = document.getElementById('start-dates-table-body');
+
+    let currentStartDatesMap = {};
+
+    // 8. 起始日期表上传 Dropzone
+    if (dropzoneStartdates && inputStartdates) {
+        setupDropzone(dropzoneStartdates, inputStartdates, (files) => {
+            if (files && files.length > 0) {
+                const file = files[0];
+                if (file.name.toLowerCase().endsWith('.xlsx') || file.name.toLowerCase().endsWith('.csv')) {
+                    uploadStartDatesFile(file);
+                } else {
+                    alert('请选择以 .xlsx 或 .csv 结尾的起始日期表文件。');
+                }
+            }
+        });
+    }
+
+    function uploadStartDatesFile(file) {
+        const formData = new FormData();
+        formData.append('file', file);
+        startDatesStatusBadge.textContent = `正在上传并解析 ${file.name}...`;
+        startDatesStatusBadge.className = 'file-name-badge';
+
+        fetch('/api/upload_start_dates', {
+            method: 'POST',
+            body: formData
+        })
+        .then(res => res.json())
+        .then(res => {
+            if (res.success) {
+                currentStartDatesMap = res.start_dates || {};
+                startDatesStatusBadge.textContent = `已成功载入 ${res.count} 位受试者起始日期 (去横杠匹配)`;
+                startDatesStatusBadge.className = 'file-name-badge success';
+                checkReadyState();
+            } else {
+                startDatesStatusBadge.textContent = `解析出错: ${res.error}`;
+                startDatesStatusBadge.className = 'file-name-badge warning';
+            }
+        })
+        .catch(err => {
+            startDatesStatusBadge.textContent = `网络失败: ${err}`;
+            startDatesStatusBadge.className = 'file-name-badge warning';
+        });
+    }
+
+    // 9. 起始日期 Modal 管理弹窗
+    if (manageStartDatesBtn) {
+        manageStartDatesBtn.addEventListener('click', () => {
+            fetch('/api/get_start_dates')
+                .then(res => res.json())
+                .then(res => {
+                    if (res.success) {
+                        currentStartDatesMap = res.start_dates || {};
+                        renderStartDatesTable();
+                        startDatesModal.classList.remove('hidden');
+                    }
+                });
+        });
+    }
+
+    if (closeStartDatesModalBtn) {
+        closeStartDatesModalBtn.addEventListener('click', () => {
+            startDatesModal.classList.add('hidden');
+        });
+    }
+
+    function renderStartDatesTable() {
+        const query = (searchStartDatesInput ? searchStartDatesInput.value : '').trim().toLowerCase();
+        startDatesTableBody.innerHTML = '';
+
+        const keys = Object.keys(currentStartDatesMap).filter(k => k.toLowerCase().includes(query)).sort();
+        if (keys.length === 0) {
+            startDatesTableBody.innerHTML = `<tr><td colspan="3" style="padding: 20px; color: #94a3b8; text-align: center;">暂无受试者起始日期数据，可在上方直接点击上传《起始日期表.xlsx》或手动添加</td></tr>`;
+            return;
+        }
+
+        keys.forEach(k => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td><code>${escapeHtml(k)}</code></td>
+                <td><input type="date" class="custom-input start-date-val" data-id="${escapeHtml(k)}" value="${escapeHtml(currentStartDatesMap[k] || '')}" style="padding: 4px 8px; font-size: 13px; width: 100%;"></td>
+                <td><button class="btn-link delete-start-date-btn" data-id="${escapeHtml(k)}" style="color: #ef4444;">删除</button></td>
+            `;
+            startDatesTableBody.appendChild(tr);
+        });
+
+        document.querySelectorAll('.delete-start-date-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const deleteId = e.target.dataset.id;
+                delete currentStartDatesMap[deleteId];
+                renderStartDatesTable();
+            });
+        });
+    }
+
+    if (searchStartDatesInput) {
+        searchStartDatesInput.addEventListener('input', renderStartDatesTable);
+    }
+
+    if (addStartDateRowBtn) {
+        addStartDateRowBtn.addEventListener('click', () => {
+            const newId = prompt('请输入新受试者编号 (去除横杠后，例如 01001)：');
+            if (newId) {
+                const cleanNewId = newId.replace(/-/g, '').trim();
+                const todayStr = new Date().toISOString().split('T')[0];
+                currentStartDatesMap[cleanNewId] = todayStr;
+                renderStartDatesTable();
+            }
+        });
+    }
+
+    if (saveStartDatesBtn) {
+        saveStartDatesBtn.addEventListener('click', () => {
+            document.querySelectorAll('.start-date-val').forEach(input => {
+                const id = input.dataset.id;
+                const val = input.value;
+                if (id && val) {
+                    currentStartDatesMap[id] = val;
+                }
+            });
+
+            fetch('/api/get_start_dates', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ start_dates: currentStartDatesMap })
+            })
+            .then(res => res.json())
+            .then(res => {
+                if (res.success) {
+                    startDatesStatusBadge.textContent = `已成功保存 ${res.count} 位受试者起始日期`;
+                    startDatesStatusBadge.className = 'file-name-badge success';
+                    startDatesModal.classList.add('hidden');
+                    checkReadyState();
+                }
+            });
+        });
+    }
+
+    function checkReadyState() {
+        if (activeTab === 'zip') {
+            startParseBtn.disabled = selectedZipFiles.length === 0;
+        } else {
+            startParseBtn.disabled = selectedPdfFiles.length === 0;
+        }
+        if (parsedData && parsedData.length > 0) {
+            downloadBtn.disabled = false;
+            downloadWeeklyBtn.disabled = false;
+        }
+    }
+
+    // 10. Download Excel Actions
     downloadBtn.addEventListener('click', () => {
         window.location.href = '/api/download';
     });
+
+    if (downloadWeeklyBtn) {
+        downloadWeeklyBtn.addEventListener('click', () => {
+            window.location.href = '/api/download_weekly_summary';
+        });
+    }
 });

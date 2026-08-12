@@ -6,7 +6,8 @@ import tempfile
 import zipfile
 import json
 from flask import Flask, render_template, request, jsonify, send_file
-from parser_engine import parse_pdf_batch, write_all_to_excel, extract_zip
+from parser_engine import parse_pdf_batch, write_all_to_excel, extract_zip, parse_start_date_file, write_weekly_summary_excel
+import datetime
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 TEMPLATE_DIR = os.path.join(BASE_DIR, 'templates')
@@ -19,6 +20,8 @@ PARSED_CACHE = {
     "data": [],
     "total": 0
 }
+
+START_DATES_CACHE = {}
 
 def find_available_port(start_port=5050, max_attempts=50):
     """
@@ -188,6 +191,84 @@ def download_excel():
             )
         except Exception as e:
             return f"生成 Excel 时出错: {e}", 500
+
+@app.route('/api/upload_start_dates', methods=['POST'])
+def upload_start_dates():
+    global START_DATES_CACHE
+    if 'file' not in request.files or not request.files['file'].filename:
+        return jsonify({"success": False, "error": "请选择有效的《起始日期表.xlsx》或 .csv 文件。"}), 400
+        
+    f = request.files['file']
+    temp = tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx")
+    temp.close()
+    try:
+        f.save(temp.name)
+        new_dates = parse_start_date_file(temp.name)
+        if not new_dates:
+            return jsonify({"success": False, "error": "未能从文件中解析出受试者编号与起始日期，请检查文件格式 (第1列为受试者编号，第2列为起始日期)。"}), 400
+            
+        START_DATES_CACHE.update(new_dates)
+        serializable_dates = {k: (v.strftime('%Y-%m-%d') if hasattr(v, 'strftime') else str(v)) for k, v in START_DATES_CACHE.items()}
+        return jsonify({
+            "success": True,
+            "count": len(START_DATES_CACHE),
+            "added_count": len(new_dates),
+            "start_dates": serializable_dates
+        })
+    except Exception as e:
+        return jsonify({"success": False, "error": f"解析起始日期表出错: {e}"}), 500
+    finally:
+        if os.path.exists(temp.name):
+            os.remove(temp.name)
+
+@app.route('/api/get_start_dates', methods=['GET', 'POST'])
+def get_or_update_start_dates():
+    global START_DATES_CACHE
+    if request.method == 'POST':
+        req_data = request.get_json(silent=True) or {}
+        updates = req_data.get('start_dates', {})
+        for k, v in updates.items():
+            clean_k = str(k).replace('-', '').strip()
+            if not v:
+                continue
+            try:
+                s_str = str(v).split(' ')[0].replace('/', '-').replace('.', '-')
+                parts = [int(x) for x in s_str.split('-')]
+                if len(parts) == 3:
+                    START_DATES_CACHE[clean_k] = datetime.date(parts[0], parts[1], parts[2])
+            except Exception:
+                pass
+                
+    serializable_dates = {k: (v.strftime('%Y-%m-%d') if hasattr(v, 'strftime') else str(v)) for k, v in START_DATES_CACHE.items()}
+    return jsonify({
+        "success": True,
+        "count": len(START_DATES_CACHE),
+        "start_dates": serializable_dates
+    })
+
+@app.route('/api/download_weekly_summary', methods=['GET'])
+def download_weekly_summary():
+    global PARSED_CACHE, START_DATES_CACHE
+    data_list = PARSED_CACHE.get('data', [])
+    if not data_list:
+        return "暂无可导出的解析数据，请先上传 PDF 报告文件。", 400
+        
+    template_path = os.path.join(BASE_DIR, "统计模板.xlsx")
+    if not os.path.exists(template_path):
+        return "服务器端缺失《统计模板.xlsx》文件，请检查文件是否存在。", 500
+        
+    temp_excel = tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx")
+    temp_excel.close()
+    try:
+        write_weekly_summary_excel(data_list, START_DATES_CACHE, template_path, temp_excel.name)
+        return send_file(
+            temp_excel.name,
+            as_attachment=True,
+            download_name="52周房颤房速复发周报汇总表.xlsx",
+            mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+    except Exception as e:
+        return f"生成 52 周周报汇总表时出错: {e}", 500
 
 @app.errorhandler(Exception)
 def handle_global_exception(e):

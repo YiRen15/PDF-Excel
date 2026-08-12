@@ -26,12 +26,21 @@
                     <p class="subtitle">智能判定（1窦性 / 2房颤 / 3规则房速 / 2,3复合多选）· 支持上千份报告并发提取</p>
                 </div>
             </div>
-            <div class="header-actions">
+            <div class="header-actions" style="display: flex; gap: 10px;">
                 <button id="download-btn" class="btn btn-emerald" disabled>
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>
                     </svg>
                     <span>导出随访记录表 (.xlsx)</span>
+                </button>
+                <button id="download-weekly-btn" class="btn btn-purple" disabled>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+                        <line x1="16" y1="2" x2="16" y2="6"/>
+                        <line x1="8" y1="2" x2="8" y2="6"/>
+                        <line x1="3" y1="10" x2="21" y2="10"/>
+                    </svg>
+                    <span>导出 52 周复发周报 (.xlsx)</span>
                 </button>
             </div>
         </header>
@@ -115,6 +124,36 @@
                     </div>
                     <div class="progress-track">
                         <div id="progress-bar-fill" class="progress-bar-fill"></div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 2. 受试者起始日期表上传与设置卡片 -->
+            <section class="card">
+                <div class="card-header">
+                    <div class="step-title">
+                        <span class="step-badge">2</span>
+                        <h2>上传 / 设置受试者起始日期表</h2>
+                    </div>
+                    <div class="card-header-actions">
+                        <button id="manage-start-dates-btn" class="btn btn-secondary compact">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+                            <span>查看 / 在线编辑受试者起始日期库</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div id="dropzone-startdates" class="dropzone-box compact-dropzone">
+                    <input type="file" id="input-startdates" accept=".xlsx,.csv" class="hidden-file-input">
+                    <div class="dropzone-inner horizontal">
+                        <div class="icon-circle small">
+                            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                        </div>
+                        <div class="dropzone-text-group">
+                            <h3>点击上传 或 将《起始日期表.xlsx》拖入此处</h3>
+                            <p class="desc">系统自动将受试者编号去横杠匹配 (如 01-001 -> 01001)，按 7 天为一个周期精准计算第 1 周到第 52 周复发归属</p>
+                        </div>
+                        <div id="start-dates-status-badge" class="file-name-badge warning">未上传起始日期表 (可在弹窗中手动手填或直接上传)</div>
                     </div>
                 </div>
             </section>
@@ -238,6 +277,39 @@
             <div id="modal-body" class="modal-content-area"></div>
             <div class="modal-bottom">
                 <button id="modal-ok-btn" class="btn btn-primary">关闭</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 起始日期管理 Modal -->
+    <div id="start-dates-modal" class="modal-backdrop hidden">
+        <div class="modal-window wide">
+            <div class="modal-top">
+                <h3>受试者起始日期库 (去横杠后匹配)</h3>
+                <button id="close-start-dates-modal-btn" class="modal-close-icon">&times;</button>
+            </div>
+            <div class="modal-content-area">
+                <div class="modal-filter-row" style="display: flex; justify-content: space-between; gap: 10px; margin-bottom: 12px;">
+                    <input type="text" id="search-start-dates-input" class="custom-input" style="flex: 1;" placeholder="搜索受试者编号 (如 01001)...">
+                    <button id="add-start-date-row-btn" class="btn btn-secondary compact">+ 手动添加受试者起始日期</button>
+                </div>
+                <div style="max-height: 350px; overflow-y: auto; border: 1px solid var(--border-subtle); border-radius: var(--radius-sm);">
+                    <table class="styled-table compact">
+                        <thead>
+                            <tr>
+                                <th style="width: 180px;">受试者编号 (去横杠后)</th>
+                                <th>起始日期 (YYYY-MM-DD)</th>
+                                <th style="width: 80px;">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="start-dates-table-body">
+                            <!-- JS 动态注入 -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-bottom">
+                <button id="save-start-dates-btn" class="btn btn-primary">保存修改</button>
             </div>
         </div>
     </div>

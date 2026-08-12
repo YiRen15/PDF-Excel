@@ -699,3 +699,67 @@ tr.row-warning {
     border: 1px solid #fcd34d;
     display: inline-block;
 }
+
+/* 52 周周报按钮与起始日期卡片样式 */
+.btn-purple {
+    background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%);
+    color: #ffffff;
+    border: none;
+
+}
+.btn-purple:hover:not(:disabled) {
+    background: linear-gradient(135deg, #6d28d9 0%, #5b21b6 100%);
+    box-shadow: 0 4px 12px rgba(109, 40, 217, 0.3);
+}
+
+.compact-dropzone {
+    padding: 16px 20px !important;
+}
+
+.dropzone-inner.horizontal {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    text-align: left;
+}
+
+.dropzone-inner.horizontal .dropzone-text-group {
+    flex: 1;
+}
+
+.dropzone-inner.horizontal h3 {
+    font-size: 15px;
+    margin-bottom: 2px;
+}
+
+.icon-circle.small {
+    width: 40px;
+    height: 40px;
+}
+
+.file-name-badge.success {
+    background: #ecfdf5;
+    color: #047857;
+    border: 1px solid #a7f3d0;
+}
+
+.file-name-badge.warning {
+    background: #fffbe6;
+    color: #b45309;
+    border: 1px solid #fcd34d;
+}
+
+.modal-window.wide {
+    max-width: 780px !important;
+}
+
+.custom-input {
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-sm);
+    padding: 8px 12px;
+    outline: none;
+    transition: border-color 0.2s;
+}
+.custom-input:focus {
+    border-color: var(--primary);
+}
