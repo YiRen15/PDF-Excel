@@ -24,7 +24,7 @@ if %errorlevel% neq 0 (
     exit /b 1
 )
 
-:: 2. 检查现有 venv 文件夹中的主控 Python 路径是否在当前电脑上真实存在
+:: 2. 检查现有 venv 文件夹中的主控 Python 路径与依赖包是否在当前电脑上完整有效
 set NEED_REBUILD=0
 
 if exist "venv\pyvenv.cfg" (
@@ -33,30 +33,35 @@ if exist "venv\pyvenv.cfg" (
         set "CFG_VAL=%%B"
         call :check_cfg_path
     )
-) else if exist "venv" (
-    set NEED_REBUILD=1
 ) else (
     set NEED_REBUILD=1
 )
 
+:: 即使 venv 路径存在，进一步检查核心依赖包是否完整 (防止缺失 flask)
+if "%NEED_REBUILD%"=="0" (
+    venv\Scripts\python.exe -c "import flask, openpyxl, fitz" >nul 2>&1
+    if %errorlevel% neq 0 (
+        set NEED_REBUILD=1
+    )
+)
+
 if "%NEED_REBUILD%"=="1" (
-    echo [提示] 检测到旧环境路径在当前电脑上不存在或失效，正在自动清理重置...
+    echo [提示] 首次启动或环境缺失组件，正在配置专属解析环境 (约需 5 秒)...
     if exist venv rmdir /s /q venv >nul 2>&1
-    echo [提示] 正在在当前电脑配置专属 Python 解析环境，请稍候...
     python -m venv venv
-    echo [1/2] 专属环境配置完成，正在下载安装相关支持组件包...
+    echo [1/2] 专属环境创建完成，正在从镜像源下载安装核心组件 (Flask/OpenPyXL/PyMuPDF)...
     call venv\Scriptsctivate.bat
     python -m pip install -i https://pypi.tuna.tsinghua.edu.cn/simple pdfplumber openpyxl flask pymupdf
-    echo [2/2] 组件包安装完成！
+    echo [2/2] 所有依赖组件安装成功！
     echo --------------------------------------------------
 )
 
-:: 3. 启动后台解析引擎
+:: 3. 同步确保组件就绪后，启动后台解析引擎
 echo [提示] 正在启动后台解析引擎...
 if exist "venv\Scripts\python.exe" (
     start /b venv\Scripts\python.exe app.py
 ) else (
-    python -m pip install -i https://pypi.tuna.tsinghua.edu.cn/simple pdfplumber openpyxl flask pymupdf >nul 2>&1
+    python -m pip install -i https://pypi.tuna.tsinghua.edu.cn/simple pdfplumber openpyxl flask pymupdf
     start /b python app.py
 )
 
