@@ -4,7 +4,7 @@ cmd /k ""%~f0" RUN"
 exit /b
 
 :main
-title 动态心电图 PDF 转 Excel Web 启动工具
+title 动态心电图 PDF 转 Excel Web 诊断启动工具
 
 echo ==================================================
 echo    动态心电图 PDF 转 Excel - 系统深度诊断与启动
@@ -37,35 +37,47 @@ if exist "parser_engine.py" (
 echo.
 
 :: --------------------------------------------------
-:: 步骤 2: 搜寻系统中的 Python 解释器路径 (全盘自动野蛮搜索)
+:: 步骤 2: 搜寻系统中的 Python 解释器路径 (全盘原生递归多路全检索)
 :: --------------------------------------------------
 echo ===== 步骤 2: 检索 Python 路径 =====
 set "PY_EXE="
 
-:: 1) 检查系统默认全局 python 命令
-python -c "import sys" >nul 2>&1
-if %errorlevel% equ 0 set "PY_EXE=python"
-
-:: 2) 检查 Windows 启动器 py 命令
-if "%PY_EXE%"=="" (
-    py -c "import sys" >nul 2>&1
-    if %errorlevel% equ 0 set "PY_EXE=py"
-)
-
-:: 3) 通配符递归全搜索 AppData 目录下的所有 Python 版本的 python.exe
-if "%PY_EXE%"=="" (
-    if exist "%LOCALAPPDATA%\Programs\Python" (
-        for /f "delims=" %%f in ('dir /b /s "%LOCALAPPDATA%\Programs\Python\python.exe" 2^>nul') do (
-            if exist "%%f" set "PY_EXE=%%f"
+:: 1) 原生全递归搜寻 AppData\Local\Programs 目录
+if exist "%LOCALAPPDATA%\Programs" (
+    for /r "%LOCALAPPDATA%\Programs" %%f in (python.exe) do (
+        if exist "%%f" (
+            set "PY_EXE=%%f"
+            echo   [OK] 在 AppData 中自动匹配到: %%f
         )
     )
 )
 
-:: 4) 全搜索 C:\Program Files\Python 目录
+:: 2) 检查系统 PATH 环境变量
 if "%PY_EXE%"=="" (
-    if exist "C:\Program Files\Python" (
-        for /f "delims=" %%f in ('dir /b /s "C:\Program Files\Python\python.exe" 2^>nul') do (
-            if exist "%%f" set "PY_EXE=%%f"
+    python -c "import sys" >nul 2>&1
+    if %errorlevel% equ 0 (
+        set "PY_EXE=python"
+        echo   [OK] 通过环境变量匹配到: python
+    )
+)
+
+:: 3) 检查 Windows 启动器 py
+if "%PY_EXE%"=="" (
+    py -c "import sys" >nul 2>&1
+    if %errorlevel% equ 0 (
+        set "PY_EXE=py"
+        echo   [OK] 通过 Windows 启动器匹配到: py
+    )
+)
+
+:: 4) 原生全递归搜寻 C:\Program Files
+if "%PY_EXE%"=="" (
+    if exist "C:\Program Files" (
+        for /r "C:\Program Files" %%f in (python.exe) do (
+            if exist "%%f" (
+                set "PY_EXE=%%f"
+                echo   [OK] 在 Program Files 中匹配到: %%f
+            )
         )
     )
 )
@@ -80,7 +92,7 @@ if "%PY_EXE%"=="" (
     exit /b
 )
 
-echo   [OK] 成功找到并锁定 Python 解释器路径: "%PY_EXE%"
+echo   [诊断日志] 最终锁定使用的 Python 解释器: "%PY_EXE%"
 "%PY_EXE%" --version
 echo.
 
