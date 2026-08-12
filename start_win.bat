@@ -49,8 +49,7 @@ if not exist "venv\Scripts\python.exe" (
     python -m venv venv
     echo [1/2] 专属环境创建完成！
     echo [2/2] 正在自动安装核心组件包 (Flask/OpenPyXL/PyMuPDF)...
-    call venv\Scriptsctivate.bat
-    python -m pip install -i https://pypi.tuna.tsinghua.edu.cn/simple flask openpyxl pymupdf pdfplumber
+    "venv\Scripts\python.exe" -m pip install -i https://pypi.tuna.tsinghua.edu.cn/simple flask openpyxl pymupdf pdfplumber
     echo [提示] 组件配置完成！
     echo --------------------------------------------------
 )
