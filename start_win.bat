@@ -1,4 +1,5 @@
 @echo off
+setlocal enabledelayedexpansion
 if "%~1"=="RUN" goto :main
 cmd /k ""%~f0" RUN"
 exit /b
@@ -45,7 +46,7 @@ set "PY_EXE="
 :: 1) 原生全递归搜寻 AppData\Local\Programs 目录
 if exist "%LOCALAPPDATA%\Programs" (
     for /r "%LOCALAPPDATA%\Programs" %%f in (python.exe) do (
-        if exist "%%f" (
+        if exist "%%f" if "!PY_EXE!"=="" (
             set "PY_EXE=%%f"
             echo   [OK] 在 AppData 中自动匹配到: %%f
         )
@@ -53,28 +54,28 @@ if exist "%LOCALAPPDATA%\Programs" (
 )
 
 :: 2) 检查系统 PATH 环境变量
-if "%PY_EXE%"=="" (
+if "!PY_EXE!"=="" (
     python -c "import sys" >nul 2>&1
-    if %errorlevel% equ 0 (
+    if !errorlevel! equ 0 (
         set "PY_EXE=python"
         echo   [OK] 通过环境变量匹配到: python
     )
 )
 
 :: 3) 检查 Windows 启动器 py
-if "%PY_EXE%"=="" (
+if "!PY_EXE!"=="" (
     py -c "import sys" >nul 2>&1
-    if %errorlevel% equ 0 (
+    if !errorlevel! equ 0 (
         set "PY_EXE=py"
         echo   [OK] 通过 Windows 启动器匹配到: py
     )
 )
 
 :: 4) 原生全递归搜寻 C:\Program Files
-if "%PY_EXE%"=="" (
+if "!PY_EXE!"=="" (
     if exist "C:\Program Files" (
         for /r "C:\Program Files" %%f in (python.exe) do (
-            if exist "%%f" (
+            if exist "%%f" if "!PY_EXE!"=="" (
                 set "PY_EXE=%%f"
                 echo   [OK] 在 Program Files 中匹配到: %%f
             )
@@ -82,7 +83,7 @@ if "%PY_EXE%"=="" (
     )
 )
 
-if "%PY_EXE%"=="" (
+if "!PY_EXE!"=="" (
     echo.
     echo   [错误] 未能在您的电脑中检索到有效的 Python 解释器！
     echo   请确认已安装 Python (下载地址: https://www.python.org/downloads/)
@@ -92,18 +93,18 @@ if "%PY_EXE%"=="" (
     exit /b
 )
 
-echo   [诊断日志] 最终锁定使用的 Python 解释器: "%PY_EXE%"
-"%PY_EXE%" --version
+echo   [诊断日志] 最终锁定使用的 Python 解释器: "!PY_EXE!"
+"!PY_EXE!" --version
 echo.
 
 :: --------------------------------------------------
 :: 步骤 3: 测试 Python 依赖组件
 :: --------------------------------------------------
 echo ===== 步骤 3: 测试核心组件库 (Flask/OpenPyXL/PyMuPDF) =====
-"%PY_EXE%" -c "import flask, openpyxl, fitz, pdfplumber; print('  [OK] 所有核心依赖组件库检测完毕，完全正常！')" >nul 2>&1
-if %errorlevel% neq 0 (
+"!PY_EXE!" -c "import flask, openpyxl, fitz, pdfplumber; print('  [OK] 所有核心依赖组件库检测完毕，完全正常！')" >nul 2>&1
+if !errorlevel! neq 0 (
     echo   [提示] 正在自动为您下载安装缺失依赖 (使用清华国内极速镜像源)...
-    "%PY_EXE%" -m pip install -i https://pypi.tuna.tsinghua.edu.cn/simple flask openpyxl pymupdf pdfplumber
+    "!PY_EXE!" -m pip install -i https://pypi.tuna.tsinghua.edu.cn/simple flask openpyxl pymupdf pdfplumber
     echo   [OK] 组件安装完成！
 ) else (
     echo   [OK] 依赖库全部完整预备就绪！
@@ -117,7 +118,7 @@ echo ===== 步骤 4: 启动 Flask 后端 Web 服务 =====
 echo [提示] 正在调起应用程序，请观察下方输出日志...
 echo --------------------------------------------------
 
-"%PY_EXE%" app.py
+"!PY_EXE!" app.py
 
 echo.
 echo ==================================================
