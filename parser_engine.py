@@ -19,47 +19,42 @@ except ImportError:
 def parse_hms(dur_str):
     if not dur_str:
         return 0, 0, 0
-    dur_str = dur_str.strip()
+    dur_str = str(dur_str).strip()
     
-    # 1. 格式 1: HH:MM:SS 或 MM:SS (例如 07:33:00 或 07:33 或 18:53)
+    # 1. 中文/英文单位优先匹配 (支持 23小时45分12秒、23小时45分、45分12秒、30秒、23h45m12s 等)
+    m_h = re.search(r'(\d+)\s*(?:小时|h|时)', dur_str, re.I)
+    m_m = re.search(r'(\d+)\s*(?:分钟?|min|分|m(?!s))', dur_str, re.I)
+    m_s = re.search(r'(\d+)\s*(?:秒|sec|s)', dur_str, re.I)
+    
+    if m_h or m_m or m_s:
+        hours = int(m_h.group(1)) if m_h else 0
+        mins = int(m_m.group(1)) if m_m else 0
+        secs = int(m_s.group(1)) if m_s else 0
+        return hours, mins, secs
+
+    # 2. 冒号隔开的时间串: HH:MM:SS 或 HH:MM (如 23:45:12, 23:45, 07:33:00, 23：44)
     m_time = re.search(r'(\d{1,2})[:：](\d{1,2})(?:[:：](\d{1,2}))?', dur_str)
     if m_time:
         if m_time.group(3):
             return int(m_time.group(1)), int(m_time.group(2)), int(m_time.group(3))
         else:
-            val1, val2 = int(m_time.group(1)), int(m_time.group(2))
-            if val1 >= 24:
-                return val1, val2, 0
-            else:
-                return 0, val1, val2
+            return int(m_time.group(1)), int(m_time.group(2)), 0
 
-    # 2. 格式 2: 标准中英文单位 (含有 小时/时/h/H, 分钟/分/min/m/M, 秒/sec/s/S)
-    hours, mins, secs = 0, 0, 0
-    m_h = re.search(r'(\d+)\s*(?:小时|h|时)', dur_str, re.I)
-    if m_h: hours = int(m_h.group(1))
-    
-    m_m = re.search(r'(\d+)\s*(?:分钟?|min|m|分)', dur_str, re.I)
-    if m_m: mins = int(m_m.group(1))
-    
-    m_s = re.search(r'(\d+)\s*(?:秒|sec|s)', dur_str, re.I)
-    if m_s: secs = int(m_s.group(1))
-    
-    if hours > 0 or mins > 0 or secs > 0:
-        return hours, mins, secs
-
-    # 3. 格式 3: 单双引号符号简写 (例如 18'53" 或 18′53″ 或 18' 或 53")
+    # 3. 单双引号符号简写 (如 18'53" 或 45'12")
     m_sym = re.search(r"(?:(\d+)['′])?\s*(?:(\d+)[\"″])?", dur_str)
     if m_sym and (m_sym.group(1) or m_sym.group(2)):
         mins = int(m_sym.group(1)) if m_sym.group(1) else 0
         secs = int(m_sym.group(2)) if m_sym.group(2) else 0
         return 0, mins, secs
 
-    # 4. 格式 4: 智能多数字保底推算 (例如 18 53 提取出 18 分 53 秒)
+    # 4. 保底提取纯数字
     nums = [int(n) for n in re.findall(r'\d+', dur_str)]
-    if len(nums) >= 2:
-        return 0, nums[0], nums[1]
+    if len(nums) >= 3:
+        return nums[0], nums[1], nums[2]
+    elif len(nums) == 2:
+        return nums[0], nums[1], 0
     elif len(nums) == 1:
-        return 0, 0, nums[0]
+        return 0, nums[0], 0
     
     return 0, 0, 0
 
@@ -129,6 +124,24 @@ def parse_single_pdf(pdf_path):
             
         data['ECGDURH_U'] = "小时"
         data['ECGDURM_U'] = "分"
+        
+        # 4. 结束监测日期 (ECGENDAT) 自动推算 = 开始时间 + 监测时长
+        if data.get('ECGSTDAT') and (int(data.get('ECGDURH', 0)) > 0 or int(data.get('ECGDURM', 0)) > 0):
+            try:
+                st_str = data['ECGSTDAT']
+                dh = int(data.get('ECGDURH', 0))
+                dm = int(data.get('ECGDURM', 0))
+                d_part, t_part = st_str.split(' ')
+                y, m_val, d = [int(x) for x in d_part.split('-')]
+                hh, mm = [int(x) for x in t_part.split(':')]
+                import datetime
+                st_dt = datetime.datetime(y, m_val, d, hh, mm)
+                end_dt = st_dt + datetime.timedelta(hours=dh, minutes=dm)
+                data['ECGENDAT'] = end_dt.strftime('%Y-%m-%d %H:%M')
+            except Exception:
+                data['ECGENDAT'] = "/"
+        else:
+            data['ECGENDAT'] = "/"
         
         # 5. 心率指标
         m_avg = re.search(r'平均心率[:：](\d+)[(（]?bpm[)）]?', text_no_space, re.I)
@@ -322,9 +335,9 @@ def parse_single_pdf(pdf_path):
         if cond3_1 or cond3_2:
             selected_codes.append("3")
             
-        # 规则 1: 窦性心律 (关键字精简包含: 窦性心律、窦性心动、起搏心律)
-        sinus_keywords = ["窦性心律", "窦性心动", "起搏心律"]
-        sinus_negated = re.search(r'(未见|无|未发现|未检测到|否认|无明显)[^，,；;。\n\d]*?(窦性心律|窦性心动|起搏心律)', conclusion_text)
+        # 规则 1: 窦性心律 (包含完整与省略写法: 窦性心律、窦性心动、窦性动过缓、窦动过缓、窦性、起搏心律)
+        sinus_keywords = ["窦性心律", "窦性心动", "窦性动过缓", "窦动过缓", "窦性", "起搏心律"]
+        sinus_negated = re.search(r'(未见|无|未发现|未检测到|否认|无明显)[^，,；;。\n\d]*?(窦性心律|窦性心动|窦性动过缓|窦动过缓|窦性|起搏心律)', conclusion_text)
         has_sinus = any(k in conclusion_text for k in sinus_keywords) and not sinus_negated
         has_any_af = ("2" in selected_codes) or ("3" in selected_codes)
         svt_under_30 = (effective_svt_dur_sec < 30)
