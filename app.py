@@ -277,6 +277,9 @@ def handle_global_exception(e):
     print(f"全局错误捕获 [{code}]: {msg}")
     return jsonify({"success": False, "error": f"服务器响应异常 ({code}): {msg}"}), code
 
+import threading
+import webbrowser
+
 if __name__ == '__main__':
     # 动态寻找可用端口 (优先 5050，若冲突自动避开)
     desired_port = int(os.environ.get("PORT", 5050))
@@ -292,4 +295,11 @@ if __name__ == '__main__':
         
     print(f"========== 动态心电图 PDF 转 Excel 医生端系统已启动 ==========")
     print(f"访问网址: http://127.0.0.1:{port}")
+    
+    # 1.5秒后在后端自动弹窗调起浏览器
+    try:
+        threading.Timer(1.5, lambda: webbrowser.open(f"http://127.0.0.1:{port}")).start()
+    except Exception:
+        pass
+
     app.run(host='0.0.0.0', port=port, debug=False)
