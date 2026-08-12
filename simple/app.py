@@ -34,6 +34,14 @@ def find_available_port(start_port=5050, max_attempts=50):
                 continue
     return start_port
 
+
+@app.after_request
+def add_header(response):
+    response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    response.headers['Pragma'] = 'no-cache'
+    response.headers['Expires'] = '0'
+    return response
+
 @app.route("/")
 def index():
     return render_template("index.html", version=APP_VERSION)
