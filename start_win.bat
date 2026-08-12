@@ -24,46 +24,19 @@ if %errorlevel% neq 0 (
     exit /b 1
 )
 
-:: 2. 检查现有 venv 文件夹中的主控 Python 路径与依赖包是否在当前电脑上完整有效
-set NEED_REBUILD=0
-
-if exist "venv\pyvenv.cfg" (
-    for /f "usebackq tokens=1,* delims==" %%A in ("venv\pyvenv.cfg") do (
-        set "CFG_KEY=%%A"
-        set "CFG_VAL=%%B"
-        call :check_cfg_path
-    )
-) else (
-    set NEED_REBUILD=1
-)
-
-:: 即使 venv 路径存在，进一步检查核心依赖包是否完整 (防止缺失 flask)
-if "%NEED_REBUILD%"=="0" (
-    venv\Scripts\python.exe -c "import flask, openpyxl, fitz" >nul 2>&1
-    if %errorlevel% neq 0 (
-        set NEED_REBUILD=1
-    )
-)
-
-if "%NEED_REBUILD%"=="1" (
-    echo [提示] 首次启动或环境缺失组件，正在配置专属解析环境 (约需 5 秒)...
-    if exist venv rmdir /s /q venv >nul 2>&1
-    python -m venv venv
-    echo [1/2] 专属环境创建完成，正在从镜像源下载安装核心组件 (Flask/OpenPyXL/PyMuPDF)...
-    call venv\Scriptsctivate.bat
-    python -m pip install -i https://pypi.tuna.tsinghua.edu.cn/simple pdfplumber openpyxl flask pymupdf
-    echo [2/2] 所有依赖组件安装成功！
+:: 2. 检测并确保 Flask / OpenPyXL / PyMuPDF 依赖已安装
+echo [提示] 正在检查后台解析组件 (Flask / OpenPyXL / PyMuPDF)...
+python -c "import flask, openpyxl, fitz, pdfplumber" >nul 2>&1
+if %errorlevel% neq 0 (
+    echo [提示] 检测到当前电脑缺失解析组件，正在自动下载安装 (约需 5-10 秒)...
+    python -m pip install -i https://pypi.tuna.tsinghua.edu.cn/simple flask openpyxl pymupdf pdfplumber
+    echo [提示] 依赖组件安装完成！
     echo --------------------------------------------------
 )
 
-:: 3. 同步确保组件就绪后，启动后台解析引擎
+:: 3. 启动 Flask Web 后台引擎
 echo [提示] 正在启动后台解析引擎...
-if exist "venv\Scripts\python.exe" (
-    start /b venv\Scripts\python.exe app.py
-) else (
-    python -m pip install -i https://pypi.tuna.tsinghua.edu.cn/simple pdfplumber openpyxl flask pymupdf
-    start /b python app.py
-)
+start /b python app.py
 
 timeout /t 3 /nobreak >nul
 
@@ -83,16 +56,3 @@ echo ==================================================
 echo.
 
 pause
-exit /b 0
-
-:check_cfg_path
-set "CFG_KEY=%CFG_KEY: =%"
-if /i "%CFG_KEY%"=="home" (
-    set "TARGET_PATH=%CFG_VAL:~1%"
-    if not exist "%TARGET_PATH%" set NEED_REBUILD=1
-)
-if /i "%CFG_KEY%"=="executable" (
-    set "TARGET_PATH=%CFG_VAL:~1%"
-    if not exist "%TARGET_PATH%" set NEED_REBUILD=1
-)
-goto :eof
