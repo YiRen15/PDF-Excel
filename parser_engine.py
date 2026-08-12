@@ -773,8 +773,7 @@ def write_weekly_summary_excel(all_parsed_results, start_dates_dict, template_pa
         for w in range(52):
             col_idx = 4 + w
             reports_in_w = weeks_reports[w]
-            cell_val = '
-'.join(reports_in_w) if reports_in_w else ''
+            cell_val = '\n'.join(reports_in_w) if reports_in_w else ''
             c_w = ws.cell(current_row, col_idx, cell_val)
             c_w.font = font_body
             c_w.alignment = align_center_wrap
@@ -789,3 +788,4 @@ def write_weekly_summary_excel(all_parsed_results, start_dates_dict, template_pa
     wb.save(output_excel_path)
     wb.close()
     return output_excel_path
+
