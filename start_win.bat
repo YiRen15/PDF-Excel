@@ -7,14 +7,14 @@ echo ==================================================
 echo.
 
 if not exist "app.py" (
-    echo [错误] 未找到 app.py 文件，请先将 ZIP 压缩包解压后再运行！
+    echo [错误] 未找到 app.py 文件，请将本脚本放在项目主文件夹中运行！
     pause
     goto :end
 )
 
 if exist .active_port del .active_port
 
-:: 1. 检查 Python 是否可用
+:: 1. 检查当前电脑系统 Python
 python --version >nul 2>&1
 if %errorlevel% neq 0 (
     echo [错误] 未在当前电脑检测到 Python 环境！
@@ -24,20 +24,38 @@ if %errorlevel% neq 0 (
     goto :end
 )
 
-:: 2. 如果当前文件夹没有 venv 虚拟环境，自动为本台电脑创建专属 venv
+:: 2. 自动诊断旧 venv 是否兼容当前电脑 (防跨电脑路径报错)
+if exist "venv\pyvenv.cfg" (
+    for /f "tokens=1,* delims==" %%A in (venv\pyvenv.cfg) do (
+        if "%%A"=="home " (
+            if not exist "%%B" (
+                echo [提示] 检测到文件夹中残留有其他人电脑上的旧环境，正在自动清理...
+                rmdir /s /q venv >nul 2>&1
+            )
+        )
+        if "%%A"=="home" (
+            if not exist "%%B" (
+                echo [提示] 检测到文件夹中残留有其他人电脑上的旧环境，正在自动清理...
+                rmdir /s /q venv >nul 2>&1
+            )
+        )
+    )
+)
+
+:: 3. 如果无 venv 或已清理，自动配置本台电脑的专属环境
 if not exist "venv\Scripts\python.exe" (
-    echo [提示] 正在在当前电脑创建专属解析环境 (首次配置约需 5-10 秒)...
+    echo [提示] 正在为您自动配置本台电脑的专属解析环境 (约需 5-10 秒)...
     if exist venv rmdir /s /q venv >nul 2>&1
     python -m venv venv
-    echo [1/2] 专属解析环境创建完成！
-    echo [2/2] 正在自动安装核心组件 (Flask/OpenPyXL/PyMuPDF)...
+    echo [1/2] 专属环境创建完成！
+    echo [2/2] 正在自动安装核心组件包 (Flask/OpenPyXL/PyMuPDF)...
     call venv\Scriptsctivate.bat
     python -m pip install -i https://pypi.tuna.tsinghua.edu.cn/simple flask openpyxl pymupdf pdfplumber
-    echo [提示] 所有环境与组件配置完毕！
+    echo [提示] 组件配置完成！
     echo --------------------------------------------------
 )
 
-:: 3. 启动后台解析服务
+:: 4. 启动后台解析服务
 echo [提示] 正在启动后台服务引擎...
 if exist "venv\Scripts\python.exe" (
     start /b venv\Scripts\python.exe app.py
