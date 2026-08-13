@@ -616,10 +616,11 @@ def write_all_to_excel(data_list, template_path, output_path):
 
 def extract_zip(zip_path, extract_to):
     pdf_paths = []
+    zip_extract_dir = tempfile.mkdtemp(dir=extract_to)
     with zipfile.ZipFile(zip_path, 'r') as zip_ref:
-        zip_ref.extractall(extract_to)
+        zip_ref.extractall(zip_extract_dir)
         
-    for root, _, files in os.walk(extract_to):
+    for root, _, files in os.walk(zip_extract_dir):
         for f in files:
             if f.lower().endswith('.pdf') and not f.startswith('._'):
                 pdf_paths.append(os.path.join(root, f))

@@ -65,7 +65,7 @@ def upload_and_process():
                 zip_path = os.path.join(zip_sub_dir, zip_file.filename)
                 zip_file.save(zip_path)
                 
-                pdf_paths = extract_zip(zip_path, zip_sub_dir)
+                pdf_paths = list(dict.fromkeys(extract_zip(zip_path, zip_sub_dir)))
                 if pdf_paths:
                     print(f"Web 服务端解析压缩包 【{base_name}】 包含的 {len(pdf_paths)} 份 PDF 报告...")
                     results = parse_pdf_batch(pdf_paths)

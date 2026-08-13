@@ -57,12 +57,15 @@ def upload():
     
     try:
         if zip_files:
-            for zf in zip_files:
+            for idx, zf in enumerate(zip_files):
                 if zf.filename:
-                    zf_path = os.path.join(temp_dir, zf.filename)
+                    zip_sub_dir = os.path.join(temp_dir, f"zip_{idx}")
+                    os.makedirs(zip_sub_dir, exist_ok=True)
+                    zf_path = os.path.join(zip_sub_dir, zf.filename)
                     zf.save(zf_path)
-                    extracted = extract_zip(zf_path, temp_dir)
+                    extracted = extract_zip(zf_path, zip_sub_dir)
                     pdf_paths.extend(extracted)
+            pdf_paths = list(dict.fromkeys(pdf_paths))
         elif files:
             for f in files:
                 if f.filename and f.filename.lower().endswith(".pdf"):
