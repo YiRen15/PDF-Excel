@@ -272,27 +272,28 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // 4. Update Analytics Stats Cards
-    function updateStats(stats) {
+        function updateStats(stats) {
         document.getElementById('stat-total').textContent = stats.total || 0;
         document.getElementById('stat-sinus').textContent = stats.sinus_1 || 0;
         document.getElementById('stat-afib').textContent = stats.afib_2 || 0;
         document.getElementById('stat-svt').textContent = stats.svt_3 || 0;
         document.getElementById('stat-multi').textContent = stats.multi || 0;
         
+        const actualWarnCount = parsedData.filter(item => Boolean(item.has_warning || (item.ECGATBURD && String(item.ECGATBURD).includes('人工检查')) || (item.ECGAFBURD && String(item.ECGAFBURD).includes('人工检查')) || (item.warnings && item.warnings.length > 0))).length;
+
         const statWarning = document.getElementById('stat-warning');
         if (statWarning) {
-            statWarning.textContent = stats.warning_count || 0;
+            statWarning.textContent = actualWarnCount;
         }
 
-        if (stats.warning_count > 0) {
-            warningNoticeText.textContent = `本次解析检测到 ${stats.warning_count} 份报告需要人工核对负荷或持续时间，已为您自动高亮标注！`;
-            warningNoticeBanner.classList.remove('hidden');
+        if (actualWarnCount > 0) {
+            if (warningNoticeText) warningNoticeText.textContent = '本次解析检测到 ' + actualWarnCount + ' 份报告需要人工核对负荷或持续时间，已为您自动高亮标注！';
+            if (warningNoticeBanner) warningNoticeBanner.classList.remove('hidden');
         } else {
-            warningNoticeBanner.classList.add('hidden');
+            if (warningNoticeBanner) warningNoticeBanner.classList.add('hidden');
         }
     }
 
-    // 5. Filter & Pagination Logic
     function applyFilterAndRender() {
         const query = searchInput.value.trim().toLowerCase();
         const filterVal = filterSelect.value;

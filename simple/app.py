@@ -84,7 +84,7 @@ def upload():
         afib_cnt = sum(1 for r in parsed_results if "2" in str(r.get("ECGORRES", "")).replace("[", "").replace("]", "").split(","))
         svt_cnt = sum(1 for r in parsed_results if "3" in str(r.get("ECGORRES", "")).replace("[", "").replace("]", "").split(","))
         multi_cnt = sum(1 for r in parsed_results if "," in str(r.get("ECGORRES", "")).replace("[", "").replace("]", ""))
-        warning_cnt = sum(1 for r in parsed_results if r.get("has_warning") or (r.get("warnings") and len(r.get("warnings")) > 0))
+        warning_cnt = sum(1 for r in parsed_results if r.get("has_warning") or "人工检查" in str(r.get("ECGATBURD")) or "人工检查" in str(r.get("ECGAFBURD")) or (r.get("warnings") and len(r.get("warnings")) > 0))
         
         stats = {
             "total": len(parsed_results),

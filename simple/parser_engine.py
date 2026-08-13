@@ -465,9 +465,9 @@ def parse_single_pdf(pdf_path):
             data['ECGATDURS'] = ""
             data['ECGATDURS_U'] = ""
 
-        data['ECGAFR'] = "/"
-        data['ECGAFR_OPT'] = "/"
-        
+        if '人工检查' in str(data.get('ECGATBURD')) or '人工检查' in str(data.get('ECGAFBURD')) or (data.get('warnings') and len(data.get('warnings')) > 0):
+            data['has_warning'] = True
+            
         data['_filename'] = filename
         return data
 
