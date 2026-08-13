@@ -1,3 +1,4 @@
+import hashlib
 import os
 import re
 import shutil
@@ -480,6 +481,19 @@ def parse_single_pdf(pdf_path):
         }
 
 def parse_pdf_batch(pdf_paths, max_workers=32):
+    # 自动针对二进制内容 100% 相同的 PDF 报告文件 (MD5 哈希) 进行去重
+    seen_hashes = set()
+    unique_pdf_paths = []
+    for p in pdf_paths:
+        try:
+            with open(p, 'rb') as f:
+                h = hashlib.md5(f.read()).hexdigest()
+            if h not in seen_hashes:
+                seen_hashes.add(h)
+                unique_pdf_paths.append(p)
+        except Exception:
+            unique_pdf_paths.append(p)
+    pdf_paths = unique_pdf_paths
     total = len(pdf_paths)
     if total == 0:
         return []
