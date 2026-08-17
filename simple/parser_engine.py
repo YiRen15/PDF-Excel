@@ -897,13 +897,23 @@ def parse_ecg_measurement_pdf(pdf_path):
     rv56_val = extract_param(r'(?:RV5|RV6)=\s*([^\n]+)')
     rs_val = extract_param(r'R\+S=\s*([^\n]+)')
 
-    # 4. 提取诊断结论
+    # 4. 彻底完善 诊断结论 提取 (完美捕捉 * 记录不良;V4, RSR'模式 等所有行)
     diag_lines = []
     lines = [l.strip() for l in text.splitlines() if l.strip()]
     for l in lines:
-        m_diag = re.match(r'^\d{2,4}\s+([\u4e00-\u9fa5A-Za-z0-9_（）\(\)\s;；,，\-+]+)$', l)
+        m_diag = re.match(r'^\d{2,4}\s+(.+)$', l)
         if m_diag:
-            diag_lines.append(m_diag.group(1).strip())
+            content = m_diag.group(1).strip()
+            if re.match(r'^(\d{1,2}/\d{1,2}|\d{4}|\d{1,2}/\d{1,2}\s+\d{4}|\d{4}\s+\d{1,2}/\d{1,2}|\d{1,2}:\d{2}:\d{2})$', content):
+                continue
+            if any(k in content for k in ['mm/s', '滤波器', 'Ward', 'Medicati', 'Symptom', '注释', '安静时', 'ID:']):
+                continue
+            diag_lines.append(content)
+
+    if not diag_lines:
+        for l in lines:
+            if re.search(r'[\u4e00-\u9fa5]', l) and not any(k in l for k in ['医院', '滤波器', '安静时', '注释', 'ID', 'Ward', 'Medicati', 'Symptom', '未确认']):
+                diag_lines.append(l)
 
     diag_val = '\n'.join(diag_lines) if diag_lines else '/'
 
