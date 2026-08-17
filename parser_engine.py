@@ -824,3 +824,187 @@ def write_weekly_summary_excel(all_parsed_results, start_dates_dict, template_pa
     wb.close()
     return output_excel_path
 
+
+
+# ==============================================================================
+# 心电图测量报告 (常规心电图测量参数与诊断提取引擎)
+# ==============================================================================
+def parse_ecg_measurement_pdf(pdf_path):
+    """
+    解析常规心电图测量 PDF 报告:
+    提取 ID号, 日期, 10 项测量参数 (HR, R-R, P-R, QRS, QT, QTc, AXIS, SV1, RV5, R+S) 及 诊断结论
+    """
+    try:
+        doc = fitz.open(pdf_path)
+        text = doc[0].get_text()
+    except Exception as e:
+        filename = os.path.basename(pdf_path)
+        return {
+            'ID号': os.path.splitext(filename)[0],
+            '日期': '/',
+            'HR': '/', 'R-R': '/', 'P-R': '/', 'QRS': '/', 'QT': '/', 'QTc': '/', 'AXIS': '/', 'SV1': '/', 'RV5': '/', 'R+S': '/',
+            '诊断': '解析失败',
+            '_filename': filename,
+            '_error': str(e)
+        }
+
+    filename = os.path.basename(pdf_path)
+
+    # 1. 提取 ID号
+    m_id = re.search(r'ID[：:\s]+([0-9a-zA-Z_-]+)', text)
+    if not m_id:
+        m_id = re.search(r'ID[：:\s]*\n\s*([0-9a-zA-Z_-]+)', text)
+    id_val = m_id.group(1).strip() if m_id else '/'
+
+    # 2. 提取 日期
+    m_date_part1 = re.search(r'(\d{1,2}/\d{1,2}\s+\d{4}|\d{4}[-/.]\d{1,2}[-/.]\d{1,2})', text)
+    m_date_part2 = re.search(r'(\d{1,2}:\d{2}:\d{2})', text)
+    if m_date_part1 and m_date_part2:
+        date_val = f"{m_date_part1.group(1)} {m_date_part2.group(1)}"
+    elif m_date_part1:
+        date_val = m_date_part1.group(1)
+    else:
+        date_val = '/'
+
+    # 3. 提取 10 项测量参数
+    def extract_param(pattern, default='/'):
+        m = re.search(pattern, text)
+        return m.group(1).strip() if m else default
+
+    hr_val = extract_param(r'HR=\s*([^\n]+)')
+    rr_val = extract_param(r'R-R=\s*([^\n]+)')
+    pr_val = extract_param(r'P-R=\s*([^\n]+)')
+    qrs_val = extract_param(r'QRS=\s*([^\n]+)')
+    qt_val = extract_param(r'QT\s*=\s*([^\n]+)')
+    qtc_val = extract_param(r'QTc=\s*([^\n]+)')
+    axis_val = extract_param(r'AXIS=\s*([^\n]+)')
+    sv1_val = extract_param(r'SV1=\s*([^\n]+)')
+    rv5_val = extract_param(r'RV5=\s*([^\n]+)')
+    rs_val = extract_param(r'R\+S=\s*([^\n]+)')
+
+    # 4. 提取诊断结论
+    diag_lines = []
+    lines = [l.strip() for l in text.splitlines() if l.strip()]
+    for l in lines:
+        m_diag = re.match(r'^\d{2,4}\s+([\u4e00-\u9fa5A-Za-z0-9_（）\(\)\s;；,，\-+]+)$', l)
+        if m_diag:
+            diag_lines.append(m_diag.group(1).strip())
+
+    diag_val = '\n'.join(diag_lines) if diag_lines else '/'
+
+    return {
+        'ID号': id_val,
+        '日期': date_val,
+        'HR': hr_val,
+        'R-R': rr_val,
+        'P-R': pr_val,
+        'QRS': qrs_val,
+        'QT': qt_val,
+        'QTc': qtc_val,
+        'AXIS': axis_val,
+        'SV1': sv1_val,
+        'RV5': rv5_val,
+        'R+S': rs_val,
+        '诊断': diag_val,
+        '_filename': filename
+    }
+
+def parse_ecg_measurement_batch(pdf_paths, max_workers=32):
+    seen_hashes = set()
+    unique_pdf_paths = []
+    for p in pdf_paths:
+        try:
+            with open(p, 'rb') as f:
+                h = hashlib.md5(f.read()).hexdigest()
+            if h not in seen_hashes:
+                seen_hashes.add(h)
+                unique_pdf_paths.append(p)
+        except Exception:
+            unique_pdf_paths.append(p)
+
+    total = len(unique_pdf_paths)
+    if total == 0:
+        return []
+
+    results = [None] * total
+    with ThreadPoolExecutor(max_workers=min(max_workers, total)) as executor:
+        future_to_idx = {executor.submit(parse_ecg_measurement_pdf, p): idx for idx, p in enumerate(unique_pdf_paths)}
+        for future in as_completed(future_to_idx):
+            idx = future_to_idx[future]
+            try:
+                results[idx] = future.result()
+            except Exception as e:
+                p_path = unique_pdf_paths[idx]
+                results[idx] = {
+                    'ID号': os.path.splitext(os.path.basename(p_path))[0],
+                    '日期': '/',
+                    'HR': '/', 'R-R': '/', 'P-R': '/', 'QRS': '/', 'QT': '/', 'QTc': '/', 'AXIS': '/', 'SV1': '/', 'RV5': '/', 'R+S': '/',
+                    '诊断': '解析失败',
+                    '_filename': os.path.basename(p_path),
+                    '_error': str(e)
+                }
+    return [r for r in results if r is not None]
+
+def write_ecg_measurement_excel(data_list, template_path, output_path):
+    wb = openpyxl.load_workbook(template_path)
+    ws = wb.active
+
+    if ws.max_row >= 3:
+        ws.delete_rows(3, ws.max_row - 2)
+
+    font_body = Font(name='宋体', size=11)
+    align_center = Alignment(horizontal='center', vertical='center')
+    align_left_wrap = Alignment(horizontal='left', vertical='center', wrap_text=True)
+
+    thin_border = Border(
+        left=Side(style='thin', color='D9D9D9'),
+        right=Side(style='thin', color='D9D9D9'),
+        top=Side(style='thin', color='D9D9D9'),
+        bottom=Side(style='thin', color='D9D9D9')
+    )
+
+    current_row = 3
+
+    for item in data_list:
+        row_vals = [
+            item.get('ID号', '/'),
+            item.get('日期', '/'),
+            item.get('HR', '/'),
+            item.get('R-R', '/'),
+            item.get('P-R', '/'),
+            item.get('QRS', '/'),
+            item.get('QT', '/'),
+            item.get('QTc', '/'),
+            item.get('AXIS', '/'),
+            item.get('SV1', '/'),
+            item.get('RV5', '/'),
+            item.get('R+S', '/'),
+            item.get('诊断', '/')
+        ]
+
+        diag_lines = str(item.get('诊断', '')).splitlines()
+        line_count = len(diag_lines) if diag_lines else 1
+
+        for c_idx, val in enumerate(row_vals, 1):
+            cell = ws.cell(row=current_row, column=c_idx, value=val)
+            cell.font = font_body
+            cell.border = thin_border
+            if c_idx == 13:
+                cell.alignment = align_left_wrap
+            else:
+                cell.alignment = align_center
+
+        ws.row_dimensions[current_row].height = max(24, line_count * 18 + 6)
+        current_row += 1
+
+        # 用户规则：每一条数据行之后自动插入一行空白行
+        for c_idx in range(1, 14):
+            blank_cell = ws.cell(row=current_row, column=c_idx, value='')
+            blank_cell.font = font_body
+            blank_cell.border = thin_border
+            blank_cell.alignment = align_center
+
+        ws.row_dimensions[current_row].height = 20
+        current_row += 1
+
+    wb.save(output_path)

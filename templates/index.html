@@ -832,6 +832,73 @@ tr.row-warning {
     color: #94a3b8;
 }
 
+
+/* Module Tab Switcher Styles */
+.module-switcher-card {
+    background: #ffffff;
+    border-radius: 16px;
+    padding: 8px;
+    margin-bottom: 24px;
+    box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.05);
+    border: 1px solid #e2e8f0;
+}
+.module-tabs {
+    display: flex;
+    gap: 8px;
+}
+.module-tab-btn {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 20px;
+    border-radius: 12px;
+    border: 1px solid transparent;
+    background: #f8fafc;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-align: left;
+}
+.module-tab-btn:hover {
+    background: #f1f5f9;
+}
+.module-tab-btn.active {
+    background: #0f766e;
+    color: #ffffff;
+    border-color: #0d9488;
+    box-shadow: 0 4px 12px rgba(15, 118, 110, 0.2);
+}
+.mod-icon {
+    font-size: 24px;
+}
+.mod-text {
+    display: flex;
+    flex-direction: column;
+}
+.mod-title {
+    font-size: 15px;
+    font-weight: 700;
+    line-height: 1.2;
+}
+.module-tab-btn.active .mod-title {
+    color: #ffffff;
+}
+.mod-desc {
+    font-size: 12px;
+    color: #64748b;
+    margin-top: 2px;
+}
+.module-tab-btn.active .mod-desc {
+    color: #ccfbf1;
+}
+
+.mod-panel {
+    display: block;
+}
+.mod-panel.hidden {
+    display: none !important;
+}
+
 </style>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1144,5 +1211,127 @@ tr.row-warning {
     </div>
 
     <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+
+        <!-- 模块二：心电图测量报告专用视图 -->
+        <div id="module-2-container" class="mod-panel hidden">
+            <!-- 模块二 上传卡片 -->
+            <div class="card">
+                <div class="card-header">
+                    <div class="step-title">
+                        <div class="step-badge">1</div>
+                        <h2>上传心电图测量报告 (PDF / ZIP)</h2>
+                    </div>
+                    <div class="tab-switcher">
+                        <button class="tab-item active" id="meas-tab-files" onclick="switchMeasTab('files')">📄 PDF 文件批处理</button>
+                        <button class="tab-item" id="meas-tab-zip" onclick="switchMeasTab('zip')">📦 压缩包批处理 (.zip)</button>
+                    </div>
+                </div>
+
+                <!-- PDF 上传区 -->
+                <div id="meas-panel-files" class="tab-panel active">
+                    <div class="dropzone-box" id="meas-dropzone-files" onclick="document.getElementById('meas-input-files').click()">
+                        <div class="dropzone-content">
+                            <div class="cloud-icon-wrap">
+                                <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#0f766e" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                            </div>
+                            <h3>点击或将心电图测量 PDF 报告拖拽至此处</h3>
+                            <p class="dropzone-sub">支持一次性选择多份常规心电图测量 PDF 文件</p>
+                            <div id="meas-selected-files-count" class="selected-file-badge hidden">已选择 0 份 PDF 文件</div>
+                        </div>
+                    </div>
+                    <input type="file" id="meas-input-files" multiple accept=".pdf" style="display:none">
+                </div>
+
+                <!-- ZIP 上传区 -->
+                <div id="meas-panel-zip" class="tab-panel">
+                    <div class="dropzone-box" id="meas-dropzone-zip" onclick="document.getElementById('meas-input-zip').click()">
+                        <div class="dropzone-content">
+                            <div class="cloud-icon-wrap">
+                                <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#0284c7" stroke-width="2"><path d="M21 8v13H3V8"/><path d="M1 3h22v5H1z"/><path d="M10 12h4"/></svg>
+                            </div>
+                            <h3>点击或将测量报告 ZIP 压缩包拖拽至此处</h3>
+                            <p class="dropzone-sub">支持一次性选择或拖入多个包含测量报告的 ZIP 压缩包</p>
+                            <div id="meas-selected-zip-name" class="selected-file-badge hidden">已选择 0 个 ZIP 文件</div>
+                        </div>
+                    </div>
+                    <input type="file" id="meas-input-zip" multiple accept=".zip" style="display:none">
+                </div>
+
+                <!-- 操作按钮区 -->
+                <div class="actions-row">
+                    <button class="btn btn-primary btn-large" id="meas-start-parse-btn" disabled onclick="startMeasParse()">
+                        ⚡ 开始解析心电图测量报告
+                    </button>
+                    <button class="btn btn-secondary" id="meas-reset-btn" onclick="resetMeasUpload()">清空重选</button>
+                    <button class="btn btn-emerald" id="meas-download-btn" disabled onclick="downloadMeasExcel()">
+                        📥 导出心电图测量报告 (.xlsx)
+                    </button>
+                </div>
+
+                <!-- 进度条 -->
+                <div id="meas-progress-container" class="progress-container hidden">
+                    <div class="progress-info">
+                        <span id="meas-progress-status-text">正在准备解析心电图测量报告...</span>
+                        <span id="meas-progress-percent">0%</span>
+                    </div>
+                    <div class="progress-bar-bg">
+                        <div id="meas-progress-bar-fill" class="progress-bar-fill" style="width: 0%"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 模块二 统计数据卡片 -->
+            <div id="meas-stats-section" class="stats-grid hidden">
+                <div class="stat-box blue">
+                    <div class="stat-num" id="meas-stat-total">0</div>
+                    <div class="stat-label">📊 解析测量报告总数</div>
+                </div>
+                <div class="stat-box green">
+                    <div class="stat-num" id="meas-stat-normal">0</div>
+                    <div class="stat-label">🟢 正常心电图件数</div>
+                </div>
+                <div class="stat-box amber">
+                    <div class="stat-num" id="meas-stat-abnormal">0</div>
+                    <div class="stat-label">🟡 异常/心律失常件数</div>
+                </div>
+            </div>
+
+            <!-- 模块二 预览表格卡片 -->
+            <div id="meas-results-card" class="card hidden">
+                <div class="card-header">
+                    <div class="step-title">
+                        <div class="step-badge">2</div>
+                        <h2>心电图测量参数与诊断预览表</h2>
+                    </div>
+                    <button class="btn btn-emerald btn-sm" onclick="downloadMeasExcel()">
+                        📥 导出测量报告 (.xlsx)
+                    </button>
+                </div>
+                <div class="table-responsive">
+                    <table class="styled-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 100px;">ID号</th>
+                                <th style="width: 150px;">日期</th>
+                                <th>HR</th>
+                                <th>R-R</th>
+                                <th>P-R</th>
+                                <th>QRS</th>
+                                <th>QT</th>
+                                <th>QTc</th>
+                                <th>AXIS</th>
+                                <th>SV1</th>
+                                <th>RV5</th>
+                                <th>R+S</th>
+                                <th style="min-width: 250px;">诊断</th>
+                            </tr>
+                        </thead>
+                        <tbody id="meas-table-body">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
 </body>
 </html>

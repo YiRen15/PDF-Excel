@@ -8,7 +8,7 @@ import json
 import webbrowser
 import threading
 from flask import Flask, render_template, request, jsonify, send_file
-from parser_engine import parse_pdf_batch, write_all_to_excel, extract_zip
+from parser_engine import parse_pdf_batch, write_all_to_excel, extract_zip, parse_ecg_measurement_batch, write_ecg_measurement_excel
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 TEMPLATE_DIR = os.path.join(BASE_DIR, "templates")
@@ -41,6 +41,153 @@ def add_header(response):
     response.headers['Pragma'] = 'no-cache'
     response.headers['Expires'] = '0'
     return response
+
+
+MEASUREMENT_CACHE = {
+    "batches": [],
+    "data": [],
+    "total": 0
+}
+
+@app.route("/api/upload_measurement", methods=["POST"])
+def upload_measurement():
+    global MEASUREMENT_CACHE
+    files = request.files.getlist("files")
+    zip_files = request.files.getlist("zip_files")
+
+    temp_dir = tempfile.mkdtemp(prefix="ecg_meas_")
+    batches = []
+    all_results = []
+
+    try:
+        if zip_files:
+            for idx, zf in enumerate(zip_files):
+                if zf.filename:
+                    base_name = os.path.splitext(os.path.basename(zf.filename))[0] or f"测量报告包_{idx+1}"
+                    zip_sub_dir = os.path.join(temp_dir, f"zip_{idx}")
+                    os.makedirs(zip_sub_dir, exist_ok=True)
+                    zf_path = os.path.join(zip_sub_dir, zf.filename)
+                    zf.save(zf_path)
+
+                    pdf_paths = list(dict.fromkeys(extract_zip(zf_path, zip_sub_dir)))
+                    if pdf_paths:
+                        results = parse_ecg_measurement_batch(pdf_paths)
+                        batches.append({
+                            'source_name': base_name,
+                            'data': results
+                        })
+                        all_results.extend(results)
+        elif files:
+            pdf_paths = []
+            for file in files:
+                if file.filename and file.filename.lower().endswith(".pdf"):
+                    save_path = os.path.join(temp_dir, file.filename)
+                    os.makedirs(os.path.dirname(save_path), exist_ok=True)
+                    file.save(save_path)
+                    pdf_paths.append(save_path)
+
+            if pdf_paths:
+                pdf_paths = list(dict.fromkeys(pdf_paths))
+                results = parse_ecg_measurement_batch(pdf_paths)
+                batches.append({
+                    'source_name': '心电图测量报告',
+                    'data': results
+                })
+                all_results.extend(results)
+
+        if not all_results:
+            return jsonify({"success": False, "error": "未检测到有效的心电图测量 PDF 报告文件"}), 400
+
+        MEASUREMENT_CACHE["batches"] = batches
+        MEASUREMENT_CACHE["data"] = all_results
+        MEASUREMENT_CACHE["total"] = len(all_results)
+
+        normal_cnt = sum(1 for r in all_results if "正常" in str(r.get("诊断", "")))
+        abnormal_cnt = len(all_results) - normal_cnt
+
+        stats = {
+            "total": len(all_results),
+            "normal": normal_cnt,
+            "abnormal": abnormal_cnt
+        }
+
+        return jsonify({
+            "success": True,
+            "total": len(all_results),
+            "batch_count": len(batches),
+            "stats": stats,
+            "data": all_results
+        })
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+    finally:
+        shutil.rmtree(temp_dir, ignore_errors=True)
+
+@app.route("/api/download_measurement", methods=["GET"])
+def download_measurement():
+    global MEASUREMENT_CACHE
+    batches = MEASUREMENT_CACHE.get("batches", [])
+    data_list = MEASUREMENT_CACHE.get("data", [])
+    if not batches and not data_list:
+        return "暂无可导出的心电图测量数据，请先上传 PDF 报告文件。", 400
+
+    template_path = os.path.join(BASE_DIR, "输出格式.xlsx")
+    if not os.path.exists(template_path):
+        template_path = os.path.join(os.path.dirname(BASE_DIR), "输出格式.xlsx")
+
+    if len(batches) == 1:
+        b = batches[0]
+        s_name = b['source_name']
+        temp_excel = tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx")
+        temp_excel.close()
+        try:
+            write_ecg_measurement_excel(b['data'], template_path, temp_excel.name)
+            return send_file(
+                temp_excel.name,
+                as_attachment=True,
+                download_name=f"{s_name}.xlsx",
+                mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
+        except Exception as e:
+            return f"生成心电图测量 Excel 时出错: {e}", 500
+    elif len(batches) > 1:
+        temp_zip = tempfile.NamedTemporaryFile(delete=False, suffix=".zip")
+        temp_zip.close()
+
+        try:
+            with zipfile.ZipFile(temp_zip.name, 'w') as zout:
+                for b in batches:
+                    s_name = b['source_name']
+                    t_excel = tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx")
+                    t_excel.close()
+                    try:
+                        write_ecg_measurement_excel(b['data'], template_path, t_excel.name)
+                        zout.write(t_excel.name, arcname=f"{s_name}.xlsx")
+                    finally:
+                        if os.path.exists(t_excel.name):
+                            os.remove(t_excel.name)
+
+            return send_file(
+                temp_zip.name,
+                as_attachment=True,
+                download_name="心电图测量报告_批量表格.zip",
+                mimetype="application/zip"
+            )
+        except Exception as e:
+            return f"打包生成多表格 ZIP 时出错: {e}", 500
+    else:
+        temp_excel = tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx")
+        temp_excel.close()
+        try:
+            write_ecg_measurement_excel(data_list, template_path, temp_excel.name)
+            return send_file(
+                temp_excel.name,
+                as_attachment=True,
+                download_name="心电图测量报告_汇总.xlsx",
+                mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
+        except Exception as e:
+            return f"生成心电图测量 Excel 时出错: {e}", 500
 
 @app.route("/")
 def index():

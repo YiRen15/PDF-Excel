@@ -698,3 +698,258 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 });
+
+
+
+// ==============================================================================
+// 模块二：心电图测量报告 前端交互逻辑
+// ==============================================================================
+let activeMainModule = 'followup'; // 'followup' or 'measurement'
+let measActiveTab = 'files';
+let measSelectedZipFiles = [];
+let measSelectedPdfFiles = [];
+let measParsedData = [];
+
+window.switchMainModule = function(mod) {
+    activeMainModule = mod;
+    const tab1 = document.getElementById('tab-module-1');
+    const tab2 = document.getElementById('tab-module-2');
+    const mod1Con = document.getElementById('module-1-container');
+    const mod2Con = document.getElementById('module-2-container');
+
+    if (mod === 'followup') {
+        if (tab1) tab1.classList.add('active');
+        if (tab2) tab2.classList.remove('active');
+        if (mod1Con) mod1Con.classList.remove('hidden');
+        if (mod2Con) mod2Con.classList.add('hidden');
+    } else {
+        if (tab1) tab1.classList.remove('active');
+        if (tab2) tab2.classList.add('active');
+        if (mod1Con) mod1Con.classList.add('hidden');
+        if (mod2Con) mod2Con.classList.remove('hidden');
+        initMeasEvents();
+    }
+};
+
+window.switchMeasTab = function(tab) {
+    measActiveTab = tab;
+    const tabFiles = document.getElementById('meas-tab-files');
+    const tabZip = document.getElementById('meas-tab-zip');
+    const panelFiles = document.getElementById('meas-panel-files');
+    const panelZip = document.getElementById('meas-panel-zip');
+
+    if (tab === 'files') {
+        if (tabFiles) tabFiles.classList.add('active');
+        if (tabZip) tabZip.classList.remove('active');
+        if (panelFiles) panelFiles.classList.add('active');
+        if (panelZip) panelZip.classList.remove('active');
+    } else {
+        if (tabFiles) tabFiles.classList.remove('active');
+        if (tabZip) tabZip.classList.add('active');
+        if (panelFiles) panelFiles.classList.remove('active');
+        if (panelZip) panelZip.classList.add('active');
+    }
+    checkMeasReadyState();
+};
+
+function initMeasEvents() {
+    const dropzoneFiles = document.getElementById('meas-dropzone-files');
+    const inputFiles = document.getElementById('meas-input-files');
+    const dropzoneZip = document.getElementById('meas-dropzone-zip');
+    const inputZip = document.getElementById('meas-input-zip');
+
+    if (dropzoneFiles && !dropzoneFiles.dataset.inited) {
+        dropzoneFiles.dataset.inited = 'true';
+        setupMeasDropzone(dropzoneFiles, inputFiles, (files) => {
+            if (files && files.length > 0) {
+                measSelectedPdfFiles = Array.from(files).filter(f => f.name.toLowerCase().endswith('.pdf'));
+                const countBadge = document.getElementById('meas-selected-files-count');
+                if (countBadge) {
+                    countBadge.textContent = `已选择 ${measSelectedPdfFiles.length} 份心电图测量 PDF 文件`;
+                    countBadge.classList.remove('hidden');
+                }
+                checkMeasReadyState();
+            }
+        });
+    }
+
+    if (dropzoneZip && !dropzoneZip.dataset.inited) {
+        dropzoneZip.dataset.inited = 'true';
+        setupMeasDropzone(dropzoneZip, inputZip, (files) => {
+            if (files && files.length > 0) {
+                measSelectedZipFiles = Array.from(files).filter(f => f.name.toLowerCase().endswith('.zip'));
+                const zipBadge = document.getElementById('meas-selected-zip-name');
+                if (zipBadge) {
+                    zipBadge.textContent = `已选择 ${measSelectedZipFiles.length} 个测量报告 ZIP 文件`;
+                    zipBadge.classList.remove('hidden');
+                }
+                checkMeasReadyState();
+            }
+        });
+    }
+}
+
+function setupMeasDropzone(dropzone, input, onSelect) {
+    ['dragenter', 'dragover'].forEach(evt => {
+        dropzone.addEventListener(evt, (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            dropzone.classList.add('dragover');
+        });
+    });
+    ['dragleave', 'drop'].forEach(evt => {
+        dropzone.addEventListener(evt, (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            dropzone.classList.remove('dragover');
+        });
+    });
+    dropzone.addEventListener('drop', (e) => {
+        if (e.dataTransfer && e.dataTransfer.files) {
+            onSelect(e.dataTransfer.files);
+        }
+    });
+    if (input) {
+        input.addEventListener('change', () => {
+            if (input.files) onSelect(input.files);
+        });
+    }
+}
+
+function checkMeasReadyState() {
+    const parseBtn = document.getElementById('meas-start-parse-btn');
+    if (!parseBtn) return;
+    if (measActiveTab === 'files' && measSelectedPdfFiles.length > 0) {
+        parseBtn.disabled = false;
+    } else if (measActiveTab === 'zip' && measSelectedZipFiles.length > 0) {
+        parseBtn.disabled = false;
+    } else {
+        parseBtn.disabled = true;
+    }
+}
+
+window.resetMeasUpload = function() {
+    measSelectedPdfFiles = [];
+    measSelectedZipFiles = [];
+    measParsedData = [];
+    
+    const countBadge = document.getElementById('meas-selected-files-count');
+    const zipBadge = document.getElementById('meas-selected-zip-name');
+    if (countBadge) countBadge.classList.add('hidden');
+    if (zipBadge) zipBadge.classList.add('hidden');
+
+    const parseBtn = document.getElementById('meas-start-parse-btn');
+    const downloadBtn = document.getElementById('meas-download-btn');
+    if (parseBtn) parseBtn.disabled = true;
+    if (downloadBtn) downloadBtn.disabled = true;
+
+    const statsSec = document.getElementById('meas-stats-section');
+    const resCard = document.getElementById('meas-results-card');
+    const tbody = document.getElementById('meas-table-body');
+    if (statsSec) statsSec.classList.add('hidden');
+    if (resCard) resCard.classList.add('hidden');
+    if (tbody) tbody.innerHTML = '';
+};
+
+window.startMeasParse = function() {
+    const formData = new FormData();
+    if (measActiveTab === 'files') {
+        measSelectedPdfFiles.forEach(f => formData.append('files', f));
+    } else {
+        measSelectedZipFiles.forEach(f => formData.append('zip_files', f));
+    }
+
+    const progContainer = document.getElementById('meas-progress-container');
+    const progFill = document.getElementById('meas-progress-bar-fill');
+    const progPercent = document.getElementById('meas-progress-percent');
+    const progText = document.getElementById('meas-progress-status-text');
+
+    if (progContainer) progContainer.classList.remove('hidden');
+    if (progFill) progFill.style.width = '20%';
+    if (progPercent) progPercent.textContent = '20%';
+    if (progText) progText.textContent = '正在并发解析心电图测量报告 PDF 参数与诊断...';
+
+    const parseBtn = document.getElementById('meas-start-parse-btn');
+    if (parseBtn) parseBtn.disabled = true;
+
+    fetch('/api/upload_measurement', {
+        method: 'POST',
+        body: formData
+    })
+    .then(res => res.json())
+    .then(res => {
+        if (!res.success) {
+            alert('解析失败: ' + (res.error || '未知错误'));
+            if (progContainer) progContainer.classList.add('hidden');
+            if (parseBtn) parseBtn.disabled = false;
+            return;
+        }
+
+        if (progFill) progFill.style.width = '100%';
+        if (progPercent) progPercent.textContent = '100%';
+        if (progText) progText.textContent = '解析完成！正在渲染测量参数预览表...';
+
+        setTimeout(() => {
+            if (progContainer) progContainer.classList.add('hidden');
+            measParsedData = res.data || [];
+            renderMeasResults(res);
+        }, 300);
+    })
+    .catch(err => {
+        alert('网络请求失败: ' + err);
+        if (progContainer) progContainer.classList.add('hidden');
+        if (parseBtn) parseBtn.disabled = false;
+    });
+};
+
+function renderMeasResults(res) {
+    const stats = res.stats || {};
+    const data = res.data || [];
+
+    const statTotal = document.getElementById('meas-stat-total');
+    const statNormal = document.getElementById('meas-stat-normal');
+    const statAbnormal = document.getElementById('meas-stat-abnormal');
+
+    if (statTotal) statTotal.textContent = stats.total || 0;
+    if (statNormal) statNormal.textContent = stats.normal || 0;
+    if (statAbnormal) statAbnormal.textContent = stats.abnormal || 0;
+
+    const statsSec = document.getElementById('meas-stats-section');
+    const resCard = document.getElementById('meas-results-card');
+    const downloadBtn = document.getElementById('meas-download-btn');
+
+    if (statsSec) statsSec.classList.remove('hidden');
+    if (resCard) resCard.classList.remove('hidden');
+    if (downloadBtn) downloadBtn.disabled = false;
+
+    const tbody = document.getElementById('meas-table-body');
+    if (!tbody) return;
+
+    let rowsHtml = '';
+    data.forEach(item => {
+        const diagEsc = (item.诊断 || '/').replace(/\n/g, '<br>');
+        rowsHtml += `
+            <tr>
+                <td style="font-weight:600;">${item.ID号 || '/'}</td>
+                <td>${item.日期 || '/'}</td>
+                <td>${item.HR || '/'}</td>
+                <td>${item['R-R'] || '/'}</td>
+                <td>${item['P-R'] || '/'}</td>
+                <td>${item.QRS || '/'}</td>
+                <td>${item.QT || '/'}</td>
+                <td>${item.QTc || '/'}</td>
+                <td>${item.AXIS || '/'}</td>
+                <td>${item.SV1 || '/'}</td>
+                <td>${item.RV5 || '/'}</td>
+                <td>${item['R+S'] || '/'}</td>
+                <td style="text-align:left; line-height:1.4; color:#0f766e; font-weight:500;">${diagEsc}</td>
+            </tr>
+        `;
+    });
+
+    tbody.innerHTML = rowsHtml;
+}
+
+window.downloadMeasExcel = function() {
+    window.location.href = '/api/download_measurement';
+};

@@ -6,7 +6,7 @@ import tempfile
 import zipfile
 import json
 from flask import Flask, render_template, request, jsonify, send_file
-from parser_engine import parse_pdf_batch, write_all_to_excel, extract_zip, parse_start_date_file, write_weekly_summary_excel
+from parser_engine import parse_pdf_batch, write_all_to_excel, extract_zip, parse_ecg_measurement_batch, write_ecg_measurement_excel, parse_start_date_file, write_weekly_summary_excel
 import datetime
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
