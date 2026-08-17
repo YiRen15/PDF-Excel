@@ -929,20 +929,31 @@ tr.row-warning {
                     </svg>
                     <span>导出随访记录表 (.xlsx)</span>
                 </button>
-                <button id="download-weekly-btn" class="btn btn-purple" disabled>
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
-                        <line x1="16" y1="2" x2="16" y2="6"/>
-                        <line x1="8" y1="2" x2="8" y2="6"/>
-                        <line x1="3" y1="10" x2="21" y2="10"/>
-                    </svg>
-                    <span>导出 52 周复发周报 (.xlsx)</span>
-                </button>
             </div>
         </header>
 
-        <!-- 主界面容器 -->
-        <main class="main-layout">
+        <!-- 核心业务模块切换卡片 -->
+        <div class="module-switcher-card">
+            <div class="module-tabs">
+                <button class="module-tab-btn active" id="tab-module-1" onclick="switchMainModule('followup')">
+                    <span class="mod-icon">📋</span>
+                    <div class="mod-text">
+                        <span class="mod-title">模块一：动态心电图 24H 随访报告</span>
+                        <span class="mod-desc">提取房颤/房速/窦性心律负荷与持续时间 (导出随访记录表)</span>
+                    </div>
+                </button>
+                <button class="module-tab-btn" id="tab-module-2" onclick="switchMainModule('measurement')">
+                    <span class="mod-icon">📈</span>
+                    <div class="mod-text">
+                        <span class="mod-title">模块二：心电图测量报告</span>
+                        <span class="mod-desc">提取 HR, R-R, P-R, QRS, QT, QTc, AXIS, SV1, RV5, R+S 及 诊断结论 (导出测量报告表)</span>
+                    </div>
+                </button>
+            </div>
+        </div>
+
+        <div id="module-1-container" class="mod-panel">
+<main class="main-layout">
             <!-- 1. 文件上传卡片 -->
             <section class="card">
                 <div class="card-header">
@@ -1161,9 +1172,132 @@ tr.row-warning {
                 </div>
             </section>
         </main>
+        </div>
+
+        <!-- 模块二：心电图测量报告专用视图 -->
+        <div id="module-2-container" class="mod-panel hidden">
+            <!-- 模块二 上传卡片 -->
+            <div class="card">
+                <div class="card-header">
+                    <div class="step-title">
+                        <div class="step-badge">1</div>
+                        <h2>上传心电图测量报告 (PDF / ZIP)</h2>
+                    </div>
+                    <div class="tab-switcher">
+                        <button class="tab-item active" id="meas-tab-files" onclick="switchMeasTab('files')">📄 PDF 文件批处理</button>
+                        <button class="tab-item" id="meas-tab-zip" onclick="switchMeasTab('zip')">📦 压缩包批处理 (.zip)</button>
+                    </div>
+                </div>
+
+                <!-- PDF 上传区 -->
+                <div id="meas-panel-files" class="tab-panel active">
+                    <div class="dropzone-box" id="meas-dropzone-files" onclick="document.getElementById('meas-input-files').click()">
+                        <div class="dropzone-content" style="text-align:center; padding: 30px 20px;">
+                            <div class="cloud-icon-wrap" style="margin-bottom: 12px;">
+                                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#0f766e" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                            </div>
+                            <h3 style="font-size:16px; font-weight:700;">点击或将心电图测量 PDF 报告拖拽至此处</h3>
+                            <p class="dropzone-sub" style="font-size:13px; color:#64748b; margin-top:4px;">支持一次性选择多份常规心电图测量 PDF 文件</p>
+                            <div id="meas-selected-files-count" class="selected-file-badge hidden" style="margin-top:10px;">已选择 0 份 PDF 文件</div>
+                        </div>
+                    </div>
+                    <input type="file" id="meas-input-files" multiple accept=".pdf" style="display:none">
+                </div>
+
+                <!-- ZIP 上传区 -->
+                <div id="meas-panel-zip" class="tab-panel">
+                    <div class="dropzone-box" id="meas-dropzone-zip" onclick="document.getElementById('meas-input-zip').click()">
+                        <div class="dropzone-content" style="text-align:center; padding: 30px 20px;">
+                            <div class="cloud-icon-wrap" style="margin-bottom: 12px;">
+                                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#0284c7" stroke-width="2"><path d="M21 8v13H3V8"/><path d="M1 3h22v5H1z"/><path d="M10 12h4"/></svg>
+                            </div>
+                            <h3 style="font-size:16px; font-weight:700;">点击或将测量报告 ZIP 压缩包拖拽至此处</h3>
+                            <p class="dropzone-sub" style="font-size:13px; color:#64748b; margin-top:4px;">支持一次性选择或拖入多个包含测量报告的 ZIP 压缩包</p>
+                            <div id="meas-selected-zip-name" class="selected-file-badge hidden" style="margin-top:10px;">已选择 0 个 ZIP 文件</div>
+                        </div>
+                    </div>
+                    <input type="file" id="meas-input-zip" multiple accept=".zip" style="display:none">
+                </div>
+
+                <!-- 操作按钮区 -->
+                <div class="actions-row" style="margin-top: 20px; display: flex; gap: 12px; align-items: center;">
+                    <button class="btn btn-primary btn-large" id="meas-start-parse-btn" disabled onclick="startMeasParse()">
+                        ⚡ 开始解析心电图测量报告
+                    </button>
+                    <button class="btn btn-secondary" id="meas-reset-btn" onclick="resetMeasUpload()">清空重选</button>
+                    <button class="btn btn-emerald" id="meas-download-btn" disabled onclick="downloadMeasExcel()">
+                        📥 导出心电图测量报告 (.xlsx)
+                    </button>
+                </div>
+
+                <!-- 进度条 -->
+                <div id="meas-progress-container" class="progress-container hidden" style="margin-top: 16px;">
+                    <div class="progress-info" style="display:flex; justify-content:space-between; font-size:13px; margin-bottom:6px;">
+                        <span id="meas-progress-status-text">正在准备解析心电图测量报告...</span>
+                        <span id="meas-progress-percent" style="font-weight:700;">0%</span>
+                    </div>
+                    <div class="progress-bar-bg" style="height:8px; background:#e2e8f0; border-radius:4px; overflow:hidden;">
+                        <div id="meas-progress-bar-fill" class="progress-bar-fill" style="width: 0%; height:100%; background:#0f766e; transition:width 0.2s;"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 模块二 统计数据卡片 -->
+            <div id="meas-stats-section" class="stats-grid hidden" style="display:grid; grid-template-columns: repeat(3, 1fr); gap:16px; margin-bottom:24px;">
+                <div class="stat-box blue" style="background:#f0f9ff; border:1px solid #bae6fd; padding:16px; border-radius:12px; text-align:center;">
+                    <div class="stat-num" id="meas-stat-total" style="font-size:24px; font-weight:800; color:#0284c7;">0</div>
+                    <div class="stat-label" style="font-size:13px; color:#0369a1; margin-top:4px;">📊 解析测量报告总数</div>
+                </div>
+                <div class="stat-box green" style="background:#f0fdf4; border:1px solid #bbf7d0; padding:16px; border-radius:12px; text-align:center;">
+                    <div class="stat-num" id="meas-stat-normal" style="font-size:24px; font-weight:800; color:#16a34a;">0</div>
+                    <div class="stat-label" style="font-size:13px; color:#15803d; margin-top:4px;">🟢 正常心电图件数</div>
+                </div>
+                <div class="stat-box amber" style="background:#fffbe6; border:1px solid #fcd34d; padding:16px; border-radius:12px; text-align:center;">
+                    <div class="stat-num" id="meas-stat-abnormal" style="font-size:24px; font-weight:800; color:#d97706;">0</div>
+                    <div class="stat-label" style="font-size:13px; color:#b45309; margin-top:4px;">🟡 异常/心律失常件数</div>
+                </div>
+            </div>
+
+            <!-- 模块二 预览表格卡片 -->
+            <div id="meas-results-card" class="card hidden">
+                <div class="card-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+                    <div class="step-title" style="display:flex; align-items:center; gap:10px;">
+                        <div class="step-badge" style="width:28px; height:28px; background:#0f766e; color:#fff; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:700;">2</div>
+                        <h2 style="font-size:17px; font-weight:700;">心电图测量参数与诊断预览表</h2>
+                    </div>
+                    <button class="btn btn-emerald btn-sm" onclick="downloadMeasExcel()">
+                        📥 导出测量报告 (.xlsx)
+                    </button>
+                </div>
+                <div class="table-responsive" style="overflow-x:auto;">
+                    <table class="styled-table" style="width:100%; border-collapse:collapse;">
+                        <thead>
+                            <tr style="background:#f8fafc;">
+                                <th style="width: 100px; padding:10px;">ID号</th>
+                                <th style="width: 150px; padding:10px;">日期</th>
+                                <th style="padding:10px;">HR</th>
+                                <th style="padding:10px;">R-R</th>
+                                <th style="padding:10px;">P-R</th>
+                                <th style="padding:10px;">QRS</th>
+                                <th style="padding:10px;">QT</th>
+                                <th style="padding:10px;">QTc</th>
+                                <th style="padding:10px;">AXIS</th>
+                                <th style="padding:10px;">SV1</th>
+                                <th style="padding:10px;">RV5</th>
+                                <th style="padding:10px;">R+S</th>
+                                <th style="min-width: 250px; padding:10px;">诊断</th>
+                            </tr>
+                        </thead>
+                        <tbody id="meas-table-body">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
     </div>
 
-    <!-- 详情 Modal -->
+<!-- 详情 Modal -->
     <div id="detail-modal" class="modal-backdrop hidden">
         <div class="modal-window">
             <div class="modal-top">
