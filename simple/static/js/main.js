@@ -1,3 +1,11 @@
+// 全局阻止浏览器拖拽默认打开 PDF / ZIP 文件行为
+['dragover', 'drop'].forEach(eventName => {
+    window.addEventListener(eventName, (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+    }, false);
+});
+
 document.addEventListener('DOMContentLoaded', () => {
     // DOM Elements
     const tabBtns = document.querySelectorAll('.tab-item');
@@ -64,30 +72,47 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 2. Drag and Drop Setup
     function setupDropzone(dropzone, input, onSelect) {
-        ['dragenter', 'dragover'].forEach(eventName => {
+        if (!dropzone || !input) return;
+
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
             dropzone.addEventListener(eventName, (e) => {
                 e.preventDefault();
                 e.stopPropagation();
+            }, false);
+        });
+
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropzone.addEventListener(eventName, () => {
                 dropzone.classList.add('dragover');
             }, false);
         });
 
         ['dragleave', 'drop'].forEach(eventName => {
-            dropzone.addEventListener(eventName, (e) => {
-                e.preventDefault();
-                e.stopPropagation();
+            dropzone.addEventListener(eventName, () => {
                 dropzone.classList.remove('dragover');
             }, false);
         });
 
         dropzone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            dropzone.classList.remove('dragover');
             const dt = e.dataTransfer;
-            const files = dt.files;
-            onSelect(files);
+            if (dt && dt.files && dt.files.length > 0) {
+                onSelect(dt.files);
+            }
+        }, false);
+
+        dropzone.addEventListener('click', (e) => {
+            if (e.target !== input) {
+                input.click();
+            }
         });
 
         input.addEventListener('change', () => {
-            onSelect(input.files);
+            if (input.files && input.files.length > 0) {
+                onSelect(input.files);
+            }
         });
     }
 
@@ -762,7 +787,7 @@ function initMeasEvents() {
         dropzoneFiles.dataset.inited = 'true';
         setupMeasDropzone(dropzoneFiles, inputFiles, (files) => {
             if (files && files.length > 0) {
-                measSelectedPdfFiles = Array.from(files).filter(f => f.name.toLowerCase().endswith('.pdf'));
+                measSelectedPdfFiles = Array.from(files).filter(f => f.name.toLowerCase().endsWith('.pdf'));
                 const countBadge = document.getElementById('meas-selected-files-count');
                 if (countBadge) {
                     countBadge.textContent = `已选择 ${measSelectedPdfFiles.length} 份心电图测量 PDF 文件`;
@@ -777,7 +802,7 @@ function initMeasEvents() {
         dropzoneZip.dataset.inited = 'true';
         setupMeasDropzone(dropzoneZip, inputZip, (files) => {
             if (files && files.length > 0) {
-                measSelectedZipFiles = Array.from(files).filter(f => f.name.toLowerCase().endswith('.zip'));
+                measSelectedZipFiles = Array.from(files).filter(f => f.name.toLowerCase().endsWith('.zip'));
                 const zipBadge = document.getElementById('meas-selected-zip-name');
                 if (zipBadge) {
                     zipBadge.textContent = `已选择 ${measSelectedZipFiles.length} 个测量报告 ZIP 文件`;
