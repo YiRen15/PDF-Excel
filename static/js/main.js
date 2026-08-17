@@ -965,7 +965,7 @@ function renderMeasResults(res) {
                 <td>${item.QTc || '/'}</td>
                 <td>${item.AXIS || '/'}</td>
                 <td>${item.SV1 || '/'}</td>
-                <td>${item.RV5 || '/'}</td>
+                <td>${(item['RV5/RV6'] || item.RV5 || item.RV6 || '/') || '/'}</td>
                 <td>${item['R+S'] || '/'}</td>
                 <td style="text-align:left; line-height:1.4; color:#0f766e; font-weight:500;">${diagEsc}</td>
             </tr>

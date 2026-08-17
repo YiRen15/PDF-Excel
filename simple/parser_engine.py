@@ -832,23 +832,21 @@ def write_weekly_summary_excel(all_parsed_results, start_dates_dict, template_pa
 def parse_ecg_measurement_pdf(pdf_path):
     """
     解析常规心电图测量 PDF 报告:
-    提取 ID号, 日期, 10 项测量参数 (HR, R-R, P-R, QRS, QT, QTc, AXIS, SV1, RV5, R+S) 及 诊断结论
+    提取 ID号, 日期, 10 项测量参数 (HR, R-R, P-R, QRS, QT, QTc, AXIS, SV1, RV5/RV6, R+S) 及 诊断结论
     """
+    filename = os.path.basename(pdf_path)
     try:
         doc = fitz.open(pdf_path)
         text = doc[0].get_text()
     except Exception as e:
-        filename = os.path.basename(pdf_path)
         return {
             'ID号': os.path.splitext(filename)[0],
             '日期': '/',
-            'HR': '/', 'R-R': '/', 'P-R': '/', 'QRS': '/', 'QT': '/', 'QTc': '/', 'AXIS': '/', 'SV1': '/', 'RV5': '/', 'R+S': '/',
+            'HR': '/', 'R-R': '/', 'P-R': '/', 'QRS': '/', 'QT': '/', 'QTc': '/', 'AXIS': '/', 'SV1': '/', 'RV5/RV6': '/', 'R+S': '/',
             '诊断': '解析失败',
             '_filename': filename,
             '_error': str(e)
         }
-
-    filename = os.path.basename(pdf_path)
 
     # 1. 提取 ID号
     m_id = re.search(r'ID[：:\s]+([0-9a-zA-Z_-]+)', text)
@@ -856,17 +854,34 @@ def parse_ecg_measurement_pdf(pdf_path):
         m_id = re.search(r'ID[：:\s]*\n\s*([0-9a-zA-Z_-]+)', text)
     id_val = m_id.group(1).strip() if m_id else '/'
 
-    # 2. 提取 日期
-    m_date_part1 = re.search(r'(\d{1,2}/\d{1,2}\s+\d{4}|\d{4}[-/.]\d{1,2}[-/.]\d{1,2})', text)
-    m_date_part2 = re.search(r'(\d{1,2}:\d{2}:\d{2})', text)
-    if m_date_part1 and m_date_part2:
-        date_val = f"{m_date_part1.group(1)} {m_date_part2.group(1)}"
-    elif m_date_part1:
-        date_val = m_date_part1.group(1)
-    else:
-        date_val = '/'
+    # 2. 增强型 日期 提取 (格式 A: 12/11 2025, 格式 B: 2025 12/11, 格式 C: 2025-12-11/2025.12.11)
+    m_a = re.search(r'(\d{1,2}/\d{1,2}\s+\d{4})', text)
+    m_b = re.search(r'(\d{4}\s+\d{1,2}/\d{1,2})', text)
+    m_c = re.search(r'(\d{4}[-/.]\d{1,2}[-/.]\d{1,2})', text)
+    m_time = re.search(r'(\d{1,2}:\d{2}:\d{2})', text)
+    time_str = m_time.group(1) if m_time else ''
 
-    # 3. 提取 10 项测量参数
+    if m_a:
+        date_val = f"{m_a.group(1)} {time_str}".strip()
+    elif m_b:
+        parts = m_b.group(1).split()
+        date_val = f"{parts[1]} {parts[0]} {time_str}".strip()
+    elif m_c:
+        date_val = f"{m_c.group(1)} {time_str}".strip()
+    else:
+        m_fn = re.search(r'(\d{4}[-_.]\d{2}[-_.]\d{2})[_\s]+(\d{1,2}[-_.:]\d{2}[-_.:]\d{2})', filename)
+        if m_fn:
+            d_part = m_fn.group(1).replace('_', '-')
+            t_part = m_fn.group(2).replace('-', ':').replace('_', ':')
+            try:
+                y, m, d = d_part.split('-')
+                date_val = f"{int(m)}/{int(d)} {y} {t_part}"
+            except Exception:
+                date_val = f"{d_part} {t_part}"
+        else:
+            date_val = '/'
+
+    # 3. 提取 10 项测量参数 (涵盖 RV5 / RV6 兼容模式)
     def extract_param(pattern, default='/'):
         m = re.search(pattern, text)
         return m.group(1).strip() if m else default
@@ -879,7 +894,7 @@ def parse_ecg_measurement_pdf(pdf_path):
     qtc_val = extract_param(r'QTc=\s*([^\n]+)')
     axis_val = extract_param(r'AXIS=\s*([^\n]+)')
     sv1_val = extract_param(r'SV1=\s*([^\n]+)')
-    rv5_val = extract_param(r'RV5=\s*([^\n]+)')
+    rv56_val = extract_param(r'(?:RV5|RV6)=\s*([^\n]+)')
     rs_val = extract_param(r'R\+S=\s*([^\n]+)')
 
     # 4. 提取诊断结论
@@ -903,7 +918,7 @@ def parse_ecg_measurement_pdf(pdf_path):
         'QTc': qtc_val,
         'AXIS': axis_val,
         'SV1': sv1_val,
-        'RV5': rv5_val,
+        'RV5/RV6': rv56_val,
         'R+S': rs_val,
         '诊断': diag_val,
         '_filename': filename
@@ -938,7 +953,7 @@ def parse_ecg_measurement_batch(pdf_paths, max_workers=32):
                 results[idx] = {
                     'ID号': os.path.splitext(os.path.basename(p_path))[0],
                     '日期': '/',
-                    'HR': '/', 'R-R': '/', 'P-R': '/', 'QRS': '/', 'QT': '/', 'QTc': '/', 'AXIS': '/', 'SV1': '/', 'RV5': '/', 'R+S': '/',
+                    'HR': '/', 'R-R': '/', 'P-R': '/', 'QRS': '/', 'QT': '/', 'QTc': '/', 'AXIS': '/', 'SV1': '/', 'RV5/RV6': '/', 'R+S': '/',
                     '诊断': '解析失败',
                     '_filename': os.path.basename(p_path),
                     '_error': str(e)
@@ -977,7 +992,7 @@ def write_ecg_measurement_excel(data_list, template_path, output_path):
             item.get('QTc', '/'),
             item.get('AXIS', '/'),
             item.get('SV1', '/'),
-            item.get('RV5', '/'),
+            item.get('RV5/RV6') or item.get('RV5') or item.get('RV6') or '/',
             item.get('R+S', '/'),
             item.get('诊断', '/')
         ]
@@ -1008,3 +1023,4 @@ def write_ecg_measurement_excel(data_list, template_path, output_path):
         current_row += 1
 
     wb.save(output_path)
+
