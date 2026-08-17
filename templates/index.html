@@ -899,6 +899,32 @@ tr.row-warning {
     display: none !important;
 }
 
+
+/* 模块二专属隔离选项卡样式 */
+.meas-tab-item {
+    padding: 8px 16px;
+    border-radius: var(--radius-sm, 6px);
+    border: 1px solid var(--border-subtle, #e2e8f0);
+    background: #f8fafc;
+    color: var(--text-secondary, #475569);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+.meas-tab-item.active {
+    background: #0f766e;
+    color: #ffffff;
+    border-color: #0d9488;
+    box-shadow: 0 2px 6px rgba(15, 118, 110, 0.2);
+}
+.meas-tab-panel {
+    display: block;
+}
+.meas-tab-panel.hidden {
+    display: none !important;
+}
+
 </style>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1184,13 +1210,13 @@ tr.row-warning {
                         <h2>上传心电图测量报告 (PDF / ZIP)</h2>
                     </div>
                     <div class="tab-switcher">
-                        <button class="tab-item active" id="meas-tab-files" onclick="switchMeasTab('files')">📄 PDF 文件批处理</button>
-                        <button class="tab-item" id="meas-tab-zip" onclick="switchMeasTab('zip')">📦 压缩包批处理 (.zip)</button>
+                        <button class="meas-tab-item active" id="meas-tab-files" onclick="switchMeasTab('files')">📄 PDF 文件批处理</button>
+                        <button class="meas-tab-item" id="meas-tab-zip" onclick="switchMeasTab('zip')">📦 压缩包批处理 (.zip)</button>
                     </div>
                 </div>
 
                 <!-- PDF 上传区 -->
-                <div id="meas-panel-files" class="tab-panel active">
+                <div id="meas-panel-files" class="meas-tab-panel">
                     <div class="dropzone-box" id="meas-dropzone-files" onclick="document.getElementById('meas-input-files').click()">
                         <div class="dropzone-content" style="text-align:center; padding: 30px 20px;">
                             <div class="cloud-icon-wrap" style="margin-bottom: 12px;">
@@ -1205,7 +1231,7 @@ tr.row-warning {
                 </div>
 
                 <!-- ZIP 上传区 -->
-                <div id="meas-panel-zip" class="tab-panel">
+                <div id="meas-panel-zip" class="meas-tab-panel hidden">
                     <div class="dropzone-box" id="meas-dropzone-zip" onclick="document.getElementById('meas-input-zip').click()">
                         <div class="dropzone-content" style="text-align:center; padding: 30px 20px;">
                             <div class="cloud-icon-wrap" style="margin-bottom: 12px;">

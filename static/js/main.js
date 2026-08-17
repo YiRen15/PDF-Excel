@@ -8,8 +8,8 @@
 
 document.addEventListener('DOMContentLoaded', () => {
     // DOM Elements
-    const tabBtns = document.querySelectorAll('.tab-item');
-    const uploadPanels = document.querySelectorAll('.tab-panel');
+    const tabBtns = document.querySelectorAll('#module-1-container .tab-item');
+    const uploadPanels = document.querySelectorAll('#module-1-container .tab-panel');
     
     const inputZip = document.getElementById('input-zip');
     const inputFiles = document.getElementById('input-files');
@@ -766,13 +766,13 @@ window.switchMeasTab = function(tab) {
     if (tab === 'files') {
         if (tabFiles) tabFiles.classList.add('active');
         if (tabZip) tabZip.classList.remove('active');
-        if (panelFiles) panelFiles.classList.add('active');
-        if (panelZip) panelZip.classList.remove('active');
+        if (panelFiles) panelFiles.classList.remove('hidden');
+        if (panelZip) panelZip.classList.add('hidden');
     } else {
         if (tabFiles) tabFiles.classList.remove('active');
         if (tabZip) tabZip.classList.add('active');
-        if (panelFiles) panelFiles.classList.remove('active');
-        if (panelZip) panelZip.classList.add('active');
+        if (panelFiles) panelFiles.classList.add('hidden');
+        if (panelZip) panelZip.classList.remove('hidden');
     }
     checkMeasReadyState();
 };
