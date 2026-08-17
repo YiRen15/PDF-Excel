@@ -790,7 +790,7 @@ function initMeasEvents() {
                 measSelectedPdfFiles = Array.from(files).filter(f => f.name.toLowerCase().endsWith('.pdf'));
                 const countBadge = document.getElementById('meas-selected-files-count');
                 if (countBadge) {
-                    countBadge.textContent = `已选择 ${measSelectedPdfFiles.length} 份心电图测量 PDF 文件`;
+                    countBadge.textContent = `已选择 ${measSelectedPdfFiles.length} 份心电图测量 PDF 报告文件`;
                     countBadge.classList.remove('hidden');
                 }
                 checkMeasReadyState();
@@ -802,11 +802,20 @@ function initMeasEvents() {
         dropzoneZip.dataset.inited = 'true';
         setupMeasDropzone(dropzoneZip, inputZip, (files) => {
             if (files && files.length > 0) {
-                measSelectedZipFiles = Array.from(files).filter(f => f.name.toLowerCase().endsWith('.zip'));
-                const zipBadge = document.getElementById('meas-selected-zip-name');
-                if (zipBadge) {
-                    zipBadge.textContent = `已选择 ${measSelectedZipFiles.length} 个测量报告 ZIP 文件`;
-                    zipBadge.classList.remove('hidden');
+                const zips = Array.from(files).filter(f => f.name.toLowerCase().endsWith('.zip'));
+                if (zips.length > 0) {
+                    measSelectedZipFiles = zips;
+                    const zipBadge = document.getElementById('meas-selected-zip-name');
+                    if (zipBadge) {
+                        const totalMB = (zips.reduce((sum, f) => sum + f.size, 0) / (1024 * 1024)).toFixed(2);
+                        if (zips.length === 1) {
+                            zipBadge.textContent = `已选择 ZIP 压缩包: ${zips[0].name} (${totalMB} MB)`;
+                        } else {
+                            const zipNames = zips.map(f => f.name).join(', ');
+                            zipBadge.textContent = `已选择 ${zips.length} 个 ZIP 压缩包: ${zipNames} (共 ${totalMB} MB)`;
+                        }
+                        zipBadge.classList.remove('hidden');
+                    }
                 }
                 checkMeasReadyState();
             }
@@ -815,28 +824,47 @@ function initMeasEvents() {
 }
 
 function setupMeasDropzone(dropzone, input, onSelect) {
+    if (!dropzone) return;
+
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(evt => {
+        dropzone.addEventListener(evt, (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+        }, false);
+    });
+
     ['dragenter', 'dragover'].forEach(evt => {
-        dropzone.addEventListener(evt, (e) => {
-            e.preventDefault();
-            e.stopPropagation();
+        dropzone.addEventListener(evt, () => {
             dropzone.classList.add('dragover');
-        });
+        }, false);
     });
+
     ['dragleave', 'drop'].forEach(evt => {
-        dropzone.addEventListener(evt, (e) => {
-            e.preventDefault();
-            e.stopPropagation();
+        dropzone.addEventListener(evt, () => {
             dropzone.classList.remove('dragover');
-        });
+        }, false);
     });
+
     dropzone.addEventListener('drop', (e) => {
-        if (e.dataTransfer && e.dataTransfer.files) {
-            onSelect(e.dataTransfer.files);
+        e.preventDefault();
+        e.stopPropagation();
+        dropzone.classList.remove('dragover');
+        if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+            const files = e.dataTransfer.files;
+            requestAnimationFrame(() => {
+                onSelect(files);
+            });
         }
-    });
+    }, false);
+
     if (input) {
         input.addEventListener('change', () => {
-            if (input.files) onSelect(input.files);
+            if (input.files && input.files.length > 0) {
+                const files = input.files;
+                requestAnimationFrame(() => {
+                    onSelect(files);
+                });
+            }
         });
     }
 }
