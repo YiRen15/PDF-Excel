@@ -19,6 +19,37 @@ except ImportError:
     HAS_FITZ = False
     import pdfplumber
 
+def parse_duration_to_seconds(text):
+    if not text:
+        return 0, ""
+    pattern = r'(?:最长|最大)[^0-9\n]{0,20}?(?:持续|持续性)?[^0-9\n]{0,20}?时间[^0-9\n]{0,10}?[\s\n]*?(\d+)\s*(小时|h|hr|分|分钟|秒|s|sec|秒钟)?(?:\s*(\d+)\s*(分|分钟|秒|s|sec|秒钟)?)?'
+    m = re.search(pattern, text)
+    if m:
+        v1 = int(m.group(1))
+        u1 = m.group(2) or 's'
+        v2 = int(m.group(3)) if m.group(3) else 0
+        u2 = m.group(4) or ''
+        
+        total_sec = 0
+        fmt_str = ""
+        if u1 in ['小时', 'h', 'hr']:
+            total_sec += v1 * 3600
+            if '分' in u2:
+                total_sec += v2 * 60
+            elif '秒' in u2 or 's' in u2:
+                total_sec += v2
+            fmt_str = f"{v1}小时{v2}分" if v2 else f"{v1}小时"
+        elif u1 in ['分钟', '分']:
+            total_sec += v1 * 60
+            if '秒' in u2 or 's' in u2:
+                total_sec += v2
+            fmt_str = f"{v1}分{v2}秒" if v2 else f"{v1}分"
+        else:
+            total_sec += v1
+            fmt_str = f"{v1}秒"
+        return total_sec, fmt_str
+    return 0, ""
+
 def parse_hms(dur_str):
     if not dur_str:
         return 0, 0, 0
@@ -268,6 +299,9 @@ def parse_single_pdf(pdf_path):
         conclusion_match = re.search(r'结论[:：]?(.*?)(?=24小时数据图|24小时散点图|24小时趋势图|报告医生|报告医师|$)', text_no_space)
         conclusion_text = conclusion_match.group(1) if conclusion_match else text_no_space
         
+        # 中性短语提前擦除 (如 '不排除...')，既不误杀前面确诊结论，也不误诊无确诊报告
+        clean_conclusion_text = re.sub(r'不排除[^\n，,；;。]*', '', conclusion_text)
+        
         # 9.1 从结论中精准切片出“房速/室上速专属语句”
         svt_clause_text = ""
         svt_clause_match = re.search(r'([^，,；;。\n]*?(?:房性心动过速|房速|室上速|室上性心动过速)[^。;\n]*?)(?=[。;\n]|$)', conclusion_text)
@@ -324,39 +358,49 @@ def parse_single_pdf(pdf_path):
 
         selected_codes = []
         
-        # 规则 2: 房颤 (需排除 "未见房颤"、"无心房颤动"、"不排除房颤" 等否定句或警告提醒词)
-        afib_negated = re.search(r'(未见|无|未发现|未检测到|不伴|否认|未出现|无明显|不排除|排除|待排|疑为|疑似)[^，,；;。\n]*?(房颤|心房颤动)', conclusion_text)
-        has_afib_text = any(k in conclusion_text for k in ["心房颤动", "房颤"]) and not afib_negated
+        # 1. 结论文本中性擦除 ('不排除...' 擦除短语)
+        clean_conclusion_text = re.sub(r'不排除[^\n，,；;。]*', '', conclusion_text)
+        
+        # 2. 全量通用时长解析 (支持跨行、分钟/秒/小时等变体)
+        concl_dur_sec, concl_dur_fmt = parse_duration_to_seconds(clean_conclusion_text)
+        effective_svt_dur_sec = max(concl_dur_sec, svt_dur_sec)
+        svt_valid = (effective_svt_dur_sec >= 30)
+
+        # 规则 2: 房颤 (双通道判定: 上层房颤/房扑数据表 + 下层确诊结论)
+        afib_negated = re.search(r'(未见|无|未发现|未检测到|不伴|否认|未出现|无明显|排除)[^\\n，,；;。]*?(房颤|心房颤动|心房扑动|房扑)', clean_conclusion_text)
+        has_afib_text = any(k in clean_conclusion_text for k in ["心房颤动", "房颤"]) and not afib_negated
         has_afib_data = (af_beats > 0) or has_printed_afib_text or has_printed_afib_val
         if has_afib_text or has_afib_data:
             selected_codes.append("2")
             
-        # 规则 3: 规则的房性心动过速 (房扑或室上速 >= 30s)
-        has_aflutter_text = any(k in conclusion_text for k in ["心房扑动", "房扑"])
-        has_aflutter_data = (fl_beats > 0) or (fl_burden > 0)
+        # 规则 3: 规则的房性心动过速 (双通道判定: 房扑数据/结论 OR 室上速/房速 >= 30s)
+        has_aflutter_text = any(k in clean_conclusion_text for k in ["心房扑动", "房扑"]) and not afib_negated
+        has_aflutter_data = (fl_beats > 0) or (fl_burden > 0) or fl_active
         cond3_1 = has_aflutter_text or has_aflutter_data
         
-        svt_negated_in_concl = re.search(r'(未见|无|未发现|未检测到|不伴|否认|未出现|无明显|不排除|排除|待排|疑为|疑似)[^，,；;。\n]*?(房性心动过速|房速|室上速)', conclusion_text)
-        has_svt_in_conclusion = any(k in conclusion_text for k in ["房性心动过速", "房速", "室上速"]) and not svt_negated_in_concl
+        svt_negated_in_concl = re.search(r'(未见|无|未发现|未检测到|不伴|否认|未出现|无明显|排除)[^\\n，,；;。]*?(房性心动过速|房速|室上速)', clean_conclusion_text)
+        has_svt_in_conclusion = any(k in clean_conclusion_text for k in ["房性心动过速", "房速", "室上速"]) and not svt_negated_in_concl
 
-        cond3_2 = (has_svt_in_conclusion or svt_active) and effective_svt_dur_sec >= 30
+        cond3_2 = (has_svt_in_conclusion or svt_active) and (effective_svt_dur_sec >= 30)
         if cond3_1 or cond3_2:
             selected_codes.append("3")
             
-        # 规则 1: 窦性心律 (包含完整与省略写法: 窦性心律、窦性心动、窦性动过缓、窦动过缓、窦性、起搏心律)
-        sinus_keywords = ["窦性心律", "窦性心动", "窦性动过缓", "窦动过缓", "窦性", "起搏心律"]
-        sinus_negated = re.search(r'(未见|无|未发现|未检测到|否认|无明显)[^，,；;。\n\d]*?(窦性心律|窦性心动|窦性动过缓|窦动过缓|窦性|起搏心律)', conclusion_text)
-        has_sinus = any(k in conclusion_text for k in sinus_keywords) and not sinus_negated
+        # 规则 1: 窦性心律 / 起搏心律 (包含完整与省略写法, 包含'起搏', 剔除'异位心律')
+        sinus_keywords = ["窦性心律", "窦性心动", "窦性动过缓", "窦动过缓", "窦性", "起搏", "起搏心律", "起搏心电图", "起搏器"]
+        sinus_negated = re.search(r'(未见|无|未发现|未检测到|否认|无明显|排除)[^\\n，,；;。\\d]*?(窦性心律|窦性心动|窦性动过缓|窦动过缓|窦性|起搏)', clean_conclusion_text)
+        has_sinus = any(k in clean_conclusion_text for k in sinus_keywords) and not sinus_negated
         has_any_af = ("2" in selected_codes) or ("3" in selected_codes)
         svt_under_30 = (effective_svt_dur_sec < 30)
         if has_sinus and not has_any_af and svt_under_30:
             selected_codes.append("1")
             
-        # 需求三：中括号包裹与选择项文字映射
+        # 需求三与熔断告警：判空即标记为 ⚠️未分类，严禁出现斜杠或空值
         if not selected_codes:
-            code_raw = "/"
-            code_bracket = "/"
-            code_opt = "/"
+            code_raw = "⚠️未分类"
+            code_bracket = "⚠️未分类"
+            code_opt = "需要人工复核"
+            data['has_warning'] = True
+            data['warnings'].append("无法自动判定心律分类，需要人工复核结论")
         else:
             code_raw = ",".join(selected_codes)
             code_bracket = f"[{code_raw}]"
@@ -370,8 +414,8 @@ def parse_single_pdf(pdf_path):
             elif "2" in code_raw and "3" in code_raw:
                 code_opt = "房颤,规则的房性心动过速"
             else:
-                code_opt = "/"
-
+                code_opt = "需要人工复核"
+                
         data['ECGORRES'] = code_bracket
         data['ECGORRES_OPT'] = code_opt
 

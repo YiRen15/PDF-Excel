@@ -415,9 +415,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else if (cleanCode === '3') {
                     badgeClass = 'badge-3';
                     badgeText = '3 规则房速';
-                } else if (cleanCode === '/' || cleanCode === '' || cleanCode === '解析失败') {
-                    badgeClass = 'badge-none';
-                    badgeText = cleanCode === '解析失败' ? '解析失败' : '/';
+                } else if (cleanCode === '/' || cleanCode === '' || cleanCode === '解析失败' || cleanCode.includes('未分类')) {
+                    badgeClass = 'badge-warning-unclassified';
+                    badgeText = '⚠️ 需人工复核(未分类)';
                 }
 
                 const durH = (item.ECGDURH !== undefined && item.ECGDURH !== null && item.ECGDURH !== '') ? item.ECGDURH : '0';
