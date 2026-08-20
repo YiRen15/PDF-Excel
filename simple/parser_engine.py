@@ -202,10 +202,22 @@ def parse_single_pdf(pdf_path):
         data['ECGRR'] = int(m_rr.group(1)) if m_rr else "/"
         data['ECGRR_U'] = "ms"
         
-        # 分析的总心搏数
+                # 分析的总心搏数 (第一层提取)
         m_beats = re.search(r'分析的心搏数[:：](\d+)[(（]?次[)）]?', text_no_space)
-        total_beats = int(m_beats.group(1)) if m_beats else 1
-        
+        if not m_beats:
+            m_beats = re.search(r'分析的心搏数[:：]?(\d+)', text_no_space)
+        total_beats = int(m_beats.group(1)) if m_beats else 0
+
+        # 第二层保险：如果第一层未提取到数据，自动抽取结论及全文本中的总心搏数
+        if total_beats <= 0:
+            m_beats_c = re.search(r'(?:总心搏数|总心搏|心搏总数|总心博数|总心博)[:：]?(\d+)', text_no_space)
+            if not m_beats_c:
+                m_beats_c = re.search(r'心搏[^0-9\n]*?共[^0-9\n]*?(\d+)', text_no_space)
+            if not m_beats_c:
+                m_beats_c = re.search(r'共[^0-9\n]*?(\d+)[^0-9\n]*?次心搏', text_no_space)
+            if m_beats_c:
+                total_beats = int(m_beats_c.group(1))
+
         # 7. 房颤基础数据提取 (切片隔离：绝不跨区扫描房扑/起搏)
         af_sec_m = re.search(r'房颤分析.*?(?=房扑分析|起搏分析|室上性节律|室性节律|ST段分析|结论|$)', text_no_space)
         af_sec = af_sec_m.group(0) if af_sec_m else text_no_space
