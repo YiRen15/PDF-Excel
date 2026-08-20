@@ -512,6 +512,28 @@ def parse_single_pdf(pdf_path):
         if '人工检查' in str(data.get('ECGATBURD')) or '人工检查' in str(data.get('ECGAFBURD')) or (data.get('warnings') and len(data.get('warnings')) > 0):
             data['has_warning'] = True
             
+        
+        # 提取室上性节律总次数与计算房早负荷 (室上性节律总次数 / 分析的心搏数 * 100)
+        m_svpb_beats = re.search(r'室上性节律.*?总数[:：](\d+)', text_no_space)
+        if not m_svpb_beats:
+            m_svpb_beats = re.search(r'室上性节律.*?总数[^\d]*?(\d+)', text_no_space)
+        svpb_beats = int(m_svpb_beats.group(1)) if m_svpb_beats else 0
+        
+        svpb_burden_val = None
+        if total_beats > 0 and svpb_beats > 0:
+            raw_svpb_pct = (svpb_beats / total_beats) * 100
+            if 0 < raw_svpb_pct < 1:
+                svpb_burden_val = "小于1"
+            else:
+                svpb_burden_val = int(round(raw_svpb_pct))
+        elif svpb_beats == 0:
+            svpb_burden_val = 0
+            
+        data['ECGPBBURD'] = svpb_burden_val if svpb_burden_val is not None else ""
+        data['ECGPBBURD_U'] = "%" if svpb_burden_val is not None else ""
+        data['ECGSVPBBURD'] = svpb_burden_val if svpb_burden_val is not None else ""
+        data['ECGSVPBBURD_U'] = "%" if svpb_burden_val is not None else ""
+
         data['_filename'] = filename
         return data
 
@@ -610,7 +632,15 @@ def write_all_to_excel(data_list, template_path, output_path):
         "规则的房性心动过速负荷最长持续时间": "ECGATDUR",
         "规则的房性心动过速负荷最长持续时间_单位": "ECGATDUR_U",
         "规则的房性心动过速负荷最长持续时间（秒）": "ECGATDURS",
-        "规则的房性心动过速负荷最长持续时间（秒）_单位": "ECGATDURS_U"
+        "规则的房性心动过速负荷最长持续时间（秒）_单位": "ECGATDURS_U",
+        "房早负荷": "ECGPBBURD",
+        "房早负荷_单位": "ECGPBBURD_U",
+        "房早负荷": "ECGSVPBBURD",
+        "房早负荷_单位": "ECGSVPBBURD_U",
+        "房早负荷": "ECGPBBURD",
+        "房早负荷_单位": "ECGPBBURD_U",
+        "房早负荷": "ECGSVPBBURD",
+        "房早负荷_单位": "ECGSVPBBURD_U"
     }
 
     # 智能识别表头行数与数据起写行 (默认从第 3 行写入，直接覆盖第 3 行样例行)
