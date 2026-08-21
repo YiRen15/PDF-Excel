@@ -15,6 +15,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const inputFiles = document.getElementById('input-files');
     const dropzoneZip = document.getElementById('dropzone-zip');
     const dropzoneFiles = document.getElementById('dropzone-files');
+    const dropzoneStartDates = document.getElementById('dropzone-startdates');
+    const inputStartDates = document.getElementById('input-startdates');
+    const startDatesStatusBadge = document.getElementById('start-dates-status-badge');
     const selectedZipBadge = document.getElementById('selected-zip-name');
     const selectedFilesBadge = document.getElementById('selected-files-count');
     
