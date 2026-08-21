@@ -24,6 +24,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const startParseBtn = document.getElementById('start-parse-btn');
     const resetBtn = document.getElementById('reset-btn');
     const downloadBtn = document.getElementById('download-btn');
+    const downloadWeeklyBtn = document.getElementById('download-weekly-btn');
+    const downloadWeeklyBtn2 = document.getElementById('download-weekly-btn-2');
     
     
     
@@ -179,8 +181,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (downloadBtn) downloadBtn.disabled = !hasData;
         
         
-        if (downloadWeeklyBtn) downloadWeeklyBtn.disabled = !hasData;
-        if (downloadWeeklyBtn2) downloadWeeklyBtn2.disabled = !hasData;
+        if (typeof downloadWeeklyBtn !== 'undefined' && downloadWeeklyBtn) downloadWeeklyBtn.disabled = !hasData;
+        if (typeof downloadWeeklyBtn2 !== 'undefined' && downloadWeeklyBtn2) downloadWeeklyBtn2.disabled = !hasData;
     }
 
     // 3. Upload & Parse Execution (使用 XMLHttpRequest 实现 100% 物理真实字节进度条)
@@ -274,7 +276,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 applyFilterAndRender();
 
                 downloadBtn.disabled = false;
-                if (downloadWeeklyBtn) downloadWeeklyBtn.disabled = false;
+                if (typeof downloadWeeklyBtn !== 'undefined' && downloadWeeklyBtn) downloadWeeklyBtn.disabled = false;
                 statsSection.classList.remove('hidden');
                 resultsCard.classList.remove('hidden');
 
@@ -713,8 +715,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         const hasData = (parsedData && parsedData.length > 0);
         if (downloadBtn) downloadBtn.disabled = !hasData;
-        if (downloadWeeklyBtn) downloadWeeklyBtn.disabled = !hasData;
-        if (downloadWeeklyBtn2) downloadWeeklyBtn2.disabled = !hasData;
+        if (typeof downloadWeeklyBtn !== 'undefined' && downloadWeeklyBtn) downloadWeeklyBtn.disabled = !hasData;
+        if (typeof downloadWeeklyBtn2 !== 'undefined' && downloadWeeklyBtn2) downloadWeeklyBtn2.disabled = !hasData;
     }
 
     // 10. Download Excel Actions
@@ -1011,8 +1013,8 @@ function renderMeasResults(res) {
         if (typeof applyFilterAndRender === 'function') applyFilterAndRender();
 
         if (downloadBtn) downloadBtn.disabled = false;
-        if (downloadWeeklyBtn) downloadWeeklyBtn.disabled = false;
-        if (downloadWeeklyBtn2) downloadWeeklyBtn2.disabled = false;
+        if (typeof downloadWeeklyBtn !== 'undefined' && downloadWeeklyBtn) downloadWeeklyBtn.disabled = false;
+        if (typeof downloadWeeklyBtn2 !== 'undefined' && downloadWeeklyBtn2) downloadWeeklyBtn2.disabled = false;
 
         const statsSec = document.getElementById('stats-section');
         const resCard = document.getElementById('results-card');
