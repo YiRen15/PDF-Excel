@@ -166,11 +166,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         const hasData = (parsedData && parsedData.length > 0);
         if (downloadBtn) downloadBtn.disabled = !hasData;
-        // if (downloadWeeklyBtn) downloadWeeklyBtn.disabled = !hasData;
-        // if (downloadWeeklyBtn2) downloadWeeklyBtn2.disabled = !hasData;
-    } else {
-            startParseBtn.disabled = selectedPdfFiles.length === 0;
-        }
+        const downloadWeeklyBtn = document.getElementById('download-weekly-btn');
+        const downloadWeeklyBtn2 = document.getElementById('download-weekly-btn-2');
+        if (downloadWeeklyBtn) downloadWeeklyBtn.disabled = !hasData;
+        if (downloadWeeklyBtn2) downloadWeeklyBtn2.disabled = !hasData;
     }
 
     // 3. Upload & Parse Execution (使用 XMLHttpRequest 实现 100% 物理真实字节进度条)
@@ -572,7 +571,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     if (downloadWeeklyBtn2) {
         downloadWeeklyBtn2.addEventListener('click', handleWeeklyDownload);
-    }
     }
 
     function uploadStartDatesFile(file) {
@@ -1021,5 +1019,5 @@ function renderMeasResults(res) {
         if (progPercent) progPercent.textContent = '100%';
         if (progText) progText.textContent = '解析完成！成功提取 ' + totalCnt + ' 份报告。';
     };
-
 });
+}
