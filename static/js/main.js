@@ -158,10 +158,18 @@ document.addEventListener('DOMContentLoaded', () => {
         checkReadyState();
     });
 
-    function checkReadyState() {
+        function checkReadyState() {
         if (activeTab === 'zip') {
             startParseBtn.disabled = selectedZipFiles.length === 0;
         } else {
+            startParseBtn.disabled = selectedPdfFiles.length === 0;
+        }
+        if (parsedData && parsedData.length > 0) {
+            if (downloadBtn) downloadBtn.disabled = false;
+            if (downloadWeeklyBtn) downloadWeeklyBtn.disabled = false;
+            if (downloadWeeklyBtn2) downloadWeeklyBtn2.disabled = false;
+        }
+    } else {
             startParseBtn.disabled = selectedPdfFiles.length === 0;
         }
     }
@@ -549,33 +557,19 @@ document.addEventListener('DOMContentLoaded', () => {
             .replace(/"/g, '&quot;');
     }
 
-    const downloadWeeklyBtn = document.getElementById('download-weekly-btn');
-    const inputStartdates = document.getElementById('input-startdates');
-    const dropzoneStartdates = document.getElementById('dropzone-startdates');
-    const startDatesStatusBadge = document.getElementById('start-dates-status-badge');
+        const downloadWeeklyBtn = document.getElementById('download-weekly-btn');
+    const downloadWeeklyBtn2 = document.getElementById('download-weekly-btn-2');
 
-    const manageStartDatesBtn = document.getElementById('manage-start-dates-btn');
-    const startDatesModal = document.getElementById('start-dates-modal');
-    const closeStartDatesModalBtn = document.getElementById('close-start-dates-modal-btn');
-    const saveStartDatesBtn = document.getElementById('save-start-dates-btn');
-    const searchStartDatesInput = document.getElementById('search-start-dates-input');
-    const addStartDateRowBtn = document.getElementById('add-start-date-row-btn');
-    const startDatesTableBody = document.getElementById('start-dates-table-body');
-
-    let currentStartDatesMap = {};
-
-    // 8. 起始日期表上传 Dropzone
-    if (dropzoneStartdates && inputStartdates) {
-        setupDropzone(dropzoneStartdates, inputStartdates, (files) => {
-            if (files && files.length > 0) {
-                const file = files[0];
-                if (file.name.toLowerCase().endsWith('.xlsx') || file.name.toLowerCase().endsWith('.csv')) {
-                    uploadStartDatesFile(file);
-                } else {
-                    alert('请选择以 .xlsx 或 .csv 结尾的起始日期表文件。');
-                }
-            }
+    if (downloadWeeklyBtn) {
+        downloadWeeklyBtn.addEventListener('click', () => {
+            window.location.href = '/api/download_weekly_summary';
         });
+    }
+    if (downloadWeeklyBtn2) {
+        downloadWeeklyBtn2.addEventListener('click', () => {
+            window.location.href = '/api/download_weekly_summary';
+        });
+    }
     }
 
     function uploadStartDatesFile(file) {
