@@ -26,6 +26,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const downloadBtn = document.getElementById('download-btn');
     const downloadWeeklyBtn = document.getElementById('download-weekly-btn');
     const downloadWeeklyBtn2 = document.getElementById('download-weekly-btn-2');
+
+    // 起始日期库 Modal 元素
+    const manageStartDatesBtn = document.getElementById('manage-start-dates-btn');
+    const startDatesModal = document.getElementById('start-dates-modal');
+    const closeStartDatesModalBtn = document.getElementById('close-start-dates-modal-btn');
+    const searchStartDatesInput = document.getElementById('search-start-dates-input');
+    const addStartDateRowBtn = document.getElementById('add-start-date-row-btn');
+    const startDatesTableBody = document.getElementById('start-dates-table-body');
+    const saveStartDatesBtn = document.getElementById('save-start-dates-btn');
     
     
     
