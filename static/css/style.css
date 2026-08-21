@@ -835,54 +835,34 @@ tr.row-warning {
     box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
 }
 
-
-/* 方案 A: 浅调高对比未就绪按钮样式 */
-.btn-blue:disabled {
-    background: #eff6ff !important;
-    color: #2563eb !important;
-    border: 1px solid #bfdbfe !important;
-    opacity: 1 !important;
-    box-shadow: none !important;
-    cursor: not-allowed !important;
-}
-
-.btn-emerald:disabled {
-    background: #ecfdf5 !important;
-    color: #059669 !important;
-    border: 1px solid #a7f3d0 !important;
-    opacity: 1 !important;
-    box-shadow: none !important;
-    cursor: not-allowed !important;
-}
-
-
-
-/* 彻底覆盖 Chrome 原生 button:disabled 灰色滤镜 */
+/* 完美无冲突禁用状态 (亮眼彩底、纯白高对比文字与图标) */
 button:disabled,
-button:disabled *,
-.btn:disabled,
-.btn:disabled * {
+.btn:disabled {
     cursor: not-allowed !important;
     box-shadow: none !important;
     transform: none !important;
 }
 
 .btn-blue:disabled,
+.btn-blue:disabled *,
 .btn-blue:disabled span,
 .btn-blue:disabled svg {
-    background-color: #2563eb !important;
+    background: #3b82f6 !important;
     color: #ffffff !important;
     stroke: #ffffff !important;
     opacity: 0.65 !important;
     border-color: transparent !important;
+    cursor: not-allowed !important;
 }
 
 .btn-emerald:disabled,
+.btn-emerald:disabled *,
 .btn-emerald:disabled span,
 .btn-emerald:disabled svg {
-    background-color: #10b981 !important;
+    background: #10b981 !important;
     color: #ffffff !important;
     stroke: #ffffff !important;
     opacity: 0.65 !important;
     border-color: transparent !important;
+    cursor: not-allowed !important;
 }
