@@ -286,6 +286,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 downloadBtn.disabled = false;
                 if (typeof downloadWeeklyBtn !== 'undefined' && downloadWeeklyBtn) downloadWeeklyBtn.disabled = false;
+                if (typeof downloadWeeklyBtn2 !== 'undefined' && downloadWeeklyBtn2) downloadWeeklyBtn2.disabled = false;
                 statsSection.classList.remove('hidden');
                 resultsCard.classList.remove('hidden');
 
