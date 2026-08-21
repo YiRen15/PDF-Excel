@@ -449,7 +449,11 @@ if __name__ == '__main__':
     
     # 1.5秒后在后端自动弹窗调起浏览器
     try:
-        threading.Timer(1.5, lambda: webbrowser.open(f"http://127.0.0.1:{port}")).start()
+        if os.environ.get("AUTO_OPEN_BROWSER", "1") != "0":
+        try:
+            threading.Timer(1.5, lambda: webbrowser.open(f"http://127.0.0.1:{port}")).start()
+        except Exception:
+            pass
     except Exception:
         pass
 

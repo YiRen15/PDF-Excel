@@ -150,6 +150,12 @@ document.addEventListener('DOMContentLoaded', () => {
         checkReadyState();
     });
 
+    setupDropzone(dropzoneStartDates, inputStartDates, (files) => {
+        if (files && files.length > 0) {
+            uploadStartDatesFile(files[0]);
+        }
+    });
+
     resetBtn.addEventListener('click', () => {
         selectedZipFiles = [];
         selectedPdfFiles = [];
