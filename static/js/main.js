@@ -103,7 +103,11 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }, false);
 
-        // 改用原生 <label for="..."> 触发文件弹窗，无需多重绑定避免阻断
+                dropzone.addEventListener('click', (e) => {
+            if (e.target !== input) {
+                input.click();
+            }
+        });
 
         input.addEventListener('change', () => {
             if (input.files && input.files.length > 0) {
