@@ -25,6 +25,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const resetBtn = document.getElementById('reset-btn');
     const downloadBtn = document.getElementById('download-btn');
     
+    
+    
     const progressContainer = document.getElementById('progress-container');
     const progressFill = document.getElementById('progress-bar-fill');
     const progressPercent = document.getElementById('progress-percent');
@@ -175,8 +177,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         const hasData = (parsedData && parsedData.length > 0);
         if (downloadBtn) downloadBtn.disabled = !hasData;
-        const downloadWeeklyBtn = document.getElementById('download-weekly-btn');
-        const downloadWeeklyBtn2 = document.getElementById('download-weekly-btn-2');
+        
+        
         if (downloadWeeklyBtn) downloadWeeklyBtn.disabled = !hasData;
         if (downloadWeeklyBtn2) downloadWeeklyBtn2.disabled = !hasData;
     }
@@ -564,8 +566,8 @@ document.addEventListener('DOMContentLoaded', () => {
             .replace(/"/g, '&quot;');
     }
 
-        const downloadWeeklyBtn = document.getElementById('download-weekly-btn');
-    const downloadWeeklyBtn2 = document.getElementById('download-weekly-btn-2');
+        
+    
 
     function handleWeeklyDownload() {
         if (!parsedData || parsedData.length === 0) {
