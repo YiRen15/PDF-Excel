@@ -835,34 +835,41 @@ tr.row-warning {
     box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
 }
 
-/* 完美无冲突禁用状态 (纯彩底、纯白文字与图标、60% 柔和透明度) */
-button:disabled,
-.btn:disabled {
-    cursor: not-allowed !important;
-    box-shadow: none !important;
-    transform: none !important;
-}
-
-.btn-blue:disabled,
-.btn-blue:disabled *,
-.btn-blue:disabled span,
-.btn-blue:disabled svg {
+/* 统一强效禁用控制：保持原宝蓝/翡翠绿原底色与纯白文字，由 opacity 柔和控制置灰 */
+#download-weekly-btn:disabled,
+#download-weekly-btn-2:disabled,
+.btn-blue:disabled {
+    background: #2563eb !important;
     background-color: #2563eb !important;
     color: #ffffff !important;
-    stroke: #ffffff !important;
-    opacity: 0.6 !important;
+    opacity: 0.55 !important;
     border-color: transparent !important;
     cursor: not-allowed !important;
+    box-shadow: none !important;
 }
 
-.btn-emerald:disabled,
-.btn-emerald:disabled *,
-.btn-emerald:disabled span,
-.btn-emerald:disabled svg {
-    background-color: #10b981 !important;
+#download-weekly-btn:disabled *,
+#download-weekly-btn-2:disabled *,
+.btn-blue:disabled * {
     color: #ffffff !important;
     stroke: #ffffff !important;
-    opacity: 0.6 !important;
+    fill: none !important;
+}
+
+#download-btn:disabled,
+.btn-emerald:disabled {
+    background: #10b981 !important;
+    background-color: #10b981 !important;
+    color: #ffffff !important;
+    opacity: 0.55 !important;
     border-color: transparent !important;
     cursor: not-allowed !important;
+    box-shadow: none !important;
+}
+
+#download-btn:disabled *,
+.btn-emerald:disabled * {
+    color: #ffffff !important;
+    stroke: #ffffff !important;
+    fill: none !important;
 }
