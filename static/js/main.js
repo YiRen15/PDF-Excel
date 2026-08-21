@@ -991,11 +991,32 @@ function renderMeasResults(res) {
                 <td style="text-align:left; line-height:1.4; color:#0f766e; font-weight:500;">${diagEsc}</td>
             </tr>
         `;
-    });
+    
+    window.loadParsedResults = function(res) {
+        if (!res || !res.data) return;
+        parsedData = res.data;
+        if (typeof updateStats === 'function') updateStats(res.stats || {});
+        if (typeof applyFilterAndRender === 'function') applyFilterAndRender();
 
-    tbody.innerHTML = rowsHtml;
-}
+        if (downloadBtn) downloadBtn.disabled = false;
+        if (downloadWeeklyBtn) downloadWeeklyBtn.disabled = false;
+        if (downloadWeeklyBtn2) downloadWeeklyBtn2.disabled = false;
 
-window.downloadMeasExcel = function() {
-    window.location.href = '/api/download_measurement';
-};
+        const statsSec = document.getElementById('stats-section');
+        const resCard = document.getElementById('results-card');
+        if (statsSec) statsSec.classList.remove('hidden');
+        if (resCard) resCard.classList.remove('hidden');
+
+        const totalCnt = res.total || (res.data ? res.data.length : 0);
+        const progContainer = document.getElementById('progress-container');
+        const progFill = document.getElementById('progress-bar-fill');
+        const progPercent = document.getElementById('progress-percent');
+        const progText = document.getElementById('progress-status-text');
+
+        if (progContainer) progContainer.classList.remove('hidden');
+        if (progFill) progFill.style.width = '100%';
+        if (progPercent) progPercent.textContent = '100%';
+        if (progText) progText.textContent = '解析完成！成功提取 ' + totalCnt + ' 份报告。';
+    };
+
+});
