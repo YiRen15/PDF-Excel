@@ -324,23 +324,11 @@ def parse_single_pdf(pdf_path):
         data['has_warning'] = False
         data['warnings'] = []
 
-        # 9.2 仅在房速专属语句中提取最长持续时间
+        # 9.2 全量升级：使用全能时间解析器 parse_duration_to_seconds 扫描整段结论提取最长持续时间
         concl_svt_dur_sec = 0
-        if svt_clause_text:
-            m_concl_dur = re.search(r'(?:最长持续时间|最长时间|最长一阵|持续时间)[：:为]?([0-9:a-zA-Z小时分秒钟]+)', svt_clause_text, re.I)
-            if m_concl_dur:
-                dur_raw = m_concl_dur.group(1)
-                d_h, d_m, d_s = parse_hms(dur_raw)
-                total_concl_sec = d_h * 3600 + d_m * 60 + d_s
-                if total_concl_sec > 0:
-                    concl_svt_dur_sec = total_concl_sec
-                else:
-                    m_num = re.search(r'(\d+)', dur_raw)
-                    if m_num:
-                        concl_svt_dur_sec = int(m_num.group(1))
-                    if dur_raw:
-                        data['has_warning'] = True
-                        data['warnings'].append(f"发现未识别的持续时间格式 '{dur_raw}'，需人工核对")
+        svt_sec_found, svt_fmt_found = parse_duration_to_seconds(clean_conclusion_text)
+        if svt_sec_found > 0:
+            concl_svt_dur_sec = svt_sec_found
 
         # 保底持续时间 (优先采用结论专属提取)
         effective_svt_dur_sec = max(concl_svt_dur_sec, svt_dur_sec)
