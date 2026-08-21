@@ -724,11 +724,7 @@ document.addEventListener('DOMContentLoaded', () => {
         window.location.href = '/api/download';
     });
 
-    if (downloadWeeklyBtn) {
-        downloadWeeklyBtn.addEventListener('click', () => {
-            window.location.href = '/api/download_weekly_summary';
-        });
-    }
+
 });
 
 

@@ -213,6 +213,7 @@ body {
     height: 100%;
     opacity: 0;
     cursor: pointer;
+    z-index: 10;
 }
 
 .icon-circle {
@@ -296,18 +297,13 @@ body {
 }
 
 .btn-blue {
-    background: #2563eb !important;
-    color: #ffffff !important;
+    background: #2563eb;
+    color: #ffffff;
 }
 
 .btn-blue:hover:not(:disabled) {
-    background: #1d4ed8 !important;
-    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3) !important;
-}
-
-.btn-blue * {
-    color: #ffffff !important;
-    stroke: #ffffff !important;
+    background: #1d4ed8;
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
 }
 
 .btn-secondary {
@@ -321,8 +317,22 @@ body {
 }
 
 .btn:disabled {
-    cursor: not-allowed;
-    box-shadow: none;
+    cursor: not-allowed !important;
+    box-shadow: none !important;
+}
+
+.btn-blue:disabled {
+    background: #eff6ff !important;
+    color: #2563eb !important;
+    border: 1px solid #bfdbfe !important;
+    opacity: 1 !important;
+}
+
+.btn-emerald:disabled {
+    background: #ecfdf5 !important;
+    color: #059669 !important;
+    border: 1px solid #a7f3d0 !important;
+    opacity: 1 !important;
 }
 
 .compact {
@@ -507,6 +517,7 @@ body {
 .badge-2 { background: #fef3c7; color: #92400e; }
 .badge-3 { background: #e0e7ff; color: #3730a3; }
 .badge-2-3 { background: #f3e8ff; color: #6b21a8; }
+.badge-warning-unclassified { background: #fff7ed; color: #c2410c; border: 1px solid #ffedd5; font-weight: 700; }
 
 .btn-link {
     color: var(--accent);
@@ -840,29 +851,94 @@ tr.row-warning {
 }
 
 
-.btn-blue {
-    background: #2563eb;
+/* Module Tab Switcher Styles */
+.module-switcher-card {
+    background: #ffffff;
+    border-radius: 16px;
+    padding: 8px;
+    margin-bottom: 24px;
+    box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.05);
+    border: 1px solid #e2e8f0;
+}
+.module-tabs {
+    display: flex;
+    gap: 8px;
+}
+.module-tab-btn {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 20px;
+    border-radius: 12px;
+    border: 1px solid transparent;
+    background: #f8fafc;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-align: left;
+}
+.module-tab-btn:hover {
+    background: #f1f5f9;
+}
+.module-tab-btn.active {
+    background: #0f766e;
+    color: #ffffff;
+    border-color: #0d9488;
+    box-shadow: 0 4px 12px rgba(15, 118, 110, 0.2);
+}
+.mod-icon {
+    font-size: 24px;
+}
+.mod-text {
+    display: flex;
+    flex-direction: column;
+}
+.mod-title {
+    font-size: 15px;
+    font-weight: 700;
+    line-height: 1.2;
+}
+.module-tab-btn.active .mod-title {
     color: #ffffff;
 }
+.mod-desc {
+    font-size: 12px;
+    color: #64748b;
+    margin-top: 2px;
+}
+.module-tab-btn.active .mod-desc {
+    color: #ccfbf1;
+}
 
-.btn-blue:hover:not(:disabled) {
-    background: #1d4ed8;
-    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+.mod-panel {
+    display: block;
+}
+.mod-panel.hidden {
+    display: none !important;
 }
 
 
-.btn-blue:disabled {
-    background: #2563eb !important;
-    color: #ffffff !important;
-    opacity: 0.55 !important;
-    cursor: not-allowed !important;
-    box-shadow: none !important;
+/* 模块二专属隔离选项卡样式 */
+.meas-tab-item {
+    padding: 8px 16px;
+    border-radius: var(--radius-sm, 6px);
+    border: 1px solid var(--border-subtle, #e2e8f0);
+    background: #f8fafc;
+    color: var(--text-secondary, #475569);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
 }
-
-.btn-emerald:disabled {
-    background: #10b981 !important;
-    color: #ffffff !important;
-    opacity: 0.55 !important;
-    cursor: not-allowed !important;
-    box-shadow: none !important;
+.meas-tab-item.active {
+    background: #0f766e;
+    color: #ffffff;
+    border-color: #0d9488;
+    box-shadow: 0 2px 6px rgba(15, 118, 110, 0.2);
+}
+.meas-tab-panel {
+    display: block;
+}
+.meas-tab-panel.hidden {
+    display: none !important;
 }
