@@ -706,9 +706,8 @@ document.addEventListener('DOMContentLoaded', () => {
             startParseBtn.disabled = selectedPdfFiles.length === 0;
         }
         if (parsedData && parsedData.length > 0) {
-            downloadBtn.disabled = false;
-                if (downloadWeeklyBtn) downloadWeeklyBtn.disabled = false;
-            downloadWeeklyBtn.disabled = false;
+            if (downloadBtn) downloadBtn.disabled = false;
+            if (downloadWeeklyBtn) downloadWeeklyBtn.disabled = false;
         }
     }
 

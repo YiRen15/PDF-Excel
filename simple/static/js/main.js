@@ -257,7 +257,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 applyFilterAndRender();
 
                 downloadBtn.disabled = false;
-                if (downloadWeeklyBtn) if (downloadWeeklyBtn) downloadWeeklyBtn.disabled = false;
+                if (downloadWeeklyBtn) downloadWeeklyBtn.disabled = false;
                 statsSection.classList.remove('hidden');
                 resultsCard.classList.remove('hidden');
 
@@ -707,8 +707,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         if (parsedData && parsedData.length > 0) {
             downloadBtn.disabled = false;
-                if (downloadWeeklyBtn) if (downloadWeeklyBtn) downloadWeeklyBtn.disabled = false;
-            if (downloadWeeklyBtn) downloadWeeklyBtn.disabled = false;
+                if (downloadWeeklyBtn) downloadWeeklyBtn.disabled = false;
         }
     }
 
