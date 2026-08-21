@@ -835,7 +835,7 @@ tr.row-warning {
     box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
 }
 
-/* 完美无冲突禁用状态 (中天蓝/中翡翠绿底，纯白高对比文字与图标) */
+/* 完美无冲突禁用状态 (纯彩底、纯白文字与图标、60% 柔和透明度) */
 button:disabled,
 .btn:disabled {
     cursor: not-allowed !important;
@@ -847,11 +847,10 @@ button:disabled,
 .btn-blue:disabled *,
 .btn-blue:disabled span,
 .btn-blue:disabled svg {
-    background: #93c5fd !important;
-    background-color: #93c5fd !important;
+    background-color: #2563eb !important;
     color: #ffffff !important;
     stroke: #ffffff !important;
-    opacity: 1 !important;
+    opacity: 0.6 !important;
     border-color: transparent !important;
     cursor: not-allowed !important;
 }
@@ -860,11 +859,10 @@ button:disabled,
 .btn-emerald:disabled *,
 .btn-emerald:disabled span,
 .btn-emerald:disabled svg {
-    background: #6ee7b7 !important;
-    background-color: #6ee7b7 !important;
+    background-color: #10b981 !important;
     color: #ffffff !important;
     stroke: #ffffff !important;
-    opacity: 1 !important;
+    opacity: 0.6 !important;
     border-color: transparent !important;
     cursor: not-allowed !important;
 }

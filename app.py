@@ -15,6 +15,8 @@ STATIC_DIR = os.path.join(BASE_DIR, 'static')
 
 app = Flask(__name__, template_folder=TEMPLATE_DIR, static_folder=STATIC_DIR)
 app.config['MAX_CONTENT_LENGTH'] = 4096 * 1024 * 1024
+app.config['TEMPLATES_AUTO_RELOAD'] = True
+app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0
 
 APP_VERSION = "PDF-Excel 1.01.00"
 
