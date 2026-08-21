@@ -295,6 +295,21 @@ body {
     box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
 }
 
+.btn-blue {
+    background: #2563eb !important;
+    color: #ffffff !important;
+}
+
+.btn-blue:hover:not(:disabled) {
+    background: #1d4ed8 !important;
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3) !important;
+}
+
+.btn-blue * {
+    color: #ffffff !important;
+    stroke: #ffffff !important;
+}
+
 .btn-secondary {
     background: #f1f5f9;
     color: var(--text-primary);
@@ -835,41 +850,19 @@ tr.row-warning {
     box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
 }
 
-/* 统一强效禁用控制：保持原宝蓝/翡翠绿原底色与纯白文字，由 opacity 柔和控制置灰 */
-#download-weekly-btn:disabled,
-#download-weekly-btn-2:disabled,
+
 .btn-blue:disabled {
     background: #2563eb !important;
-    background-color: #2563eb !important;
     color: #ffffff !important;
     opacity: 0.55 !important;
-    border-color: transparent !important;
     cursor: not-allowed !important;
     box-shadow: none !important;
 }
 
-#download-weekly-btn:disabled *,
-#download-weekly-btn-2:disabled *,
-.btn-blue:disabled * {
-    color: #ffffff !important;
-    stroke: #ffffff !important;
-    fill: none !important;
-}
-
-#download-btn:disabled,
 .btn-emerald:disabled {
     background: #10b981 !important;
-    background-color: #10b981 !important;
     color: #ffffff !important;
     opacity: 0.55 !important;
-    border-color: transparent !important;
     cursor: not-allowed !important;
     box-shadow: none !important;
-}
-
-#download-btn:disabled *,
-.btn-emerald:disabled * {
-    color: #ffffff !important;
-    stroke: #ffffff !important;
-    fill: none !important;
 }
