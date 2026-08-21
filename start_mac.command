@@ -43,14 +43,13 @@ echo "正在启动 Web 服务器..."
 venv/bin/python3 app.py &
 SERVER_PID=$!
 
-# 4. 严格等待 Python 后端写入确定的端口并连通
+# 4. 严格等待 Python 后端 100% 启动成功并能正常响应 HTTP 请求
 PORT=5050
-for i in {1..20}; do
+for i in {1..60}; do
     sleep 0.2
     if [ -f ".active_port" ]; then
         PORT=$(cat .active_port)
-        curl -s "http://127.0.0.1:${PORT}/" >/dev/null 2>&1
-        if [ $? -eq 0 ]; then
+        if curl -s -f "http://127.0.0.1:${PORT}/" >/dev/null 2>&1; then
             break
         fi
     fi
