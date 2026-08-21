@@ -166,8 +166,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         const hasData = (parsedData && parsedData.length > 0);
         if (downloadBtn) downloadBtn.disabled = !hasData;
-        if (downloadWeeklyBtn) downloadWeeklyBtn.disabled = !hasData;
-        if (downloadWeeklyBtn2) downloadWeeklyBtn2.disabled = !hasData;
+        // if (downloadWeeklyBtn) downloadWeeklyBtn.disabled = !hasData;
+        // if (downloadWeeklyBtn2) downloadWeeklyBtn2.disabled = !hasData;
     } else {
             startParseBtn.disabled = selectedPdfFiles.length === 0;
         }
@@ -559,15 +559,19 @@ document.addEventListener('DOMContentLoaded', () => {
         const downloadWeeklyBtn = document.getElementById('download-weekly-btn');
     const downloadWeeklyBtn2 = document.getElementById('download-weekly-btn-2');
 
+    function handleWeeklyDownload() {
+        if (!parsedData || parsedData.length === 0) {
+            alert('暂无可导出的周报数据，请先上传并解析心电图 PDF 报告。');
+            return;
+        }
+        window.location.href = '/api/download_weekly_summary';
+    }
+
     if (downloadWeeklyBtn) {
-        downloadWeeklyBtn.addEventListener('click', () => {
-            window.location.href = '/api/download_weekly_summary';
-        });
+        downloadWeeklyBtn.addEventListener('click', handleWeeklyDownload);
     }
     if (downloadWeeklyBtn2) {
-        downloadWeeklyBtn2.addEventListener('click', () => {
-            window.location.href = '/api/download_weekly_summary';
-        });
+        downloadWeeklyBtn2.addEventListener('click', handleWeeklyDownload);
     }
     }
 
