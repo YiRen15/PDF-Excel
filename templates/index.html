@@ -967,7 +967,7 @@ tr.row-warning {
                 <div class="brand-info">
                     <div class="title-wrap" style="display: flex; align-items: center; gap: 10px;">
                         <h1>动态心电图智能解析系统</h1>
-                        <span class="version-badge" style="background: #eff6ff; color: #2563eb; border: 1px solid #bfdbfe; padding: 2px 10px; border-radius: 20px; font-size: 12px; font-weight: 600;">v1.03.13</span>
+                        <span class="version-badge" style="background: #eff6ff; color: #2563eb; border: 1px solid #bfdbfe; padding: 2px 10px; border-radius: 20px; font-size: 12px; font-weight: 600;">v1.03.14</span>
                     </div>
                     <p class="subtitle">智能判定（1窦性 / 2房颤 / 3规则房速 / 2,3复合多选）· 支持上千份报告并发提取</p>
                 </div>
@@ -1029,7 +1029,7 @@ tr.row-warning {
 
                 <!-- 多文件面板 (默认激活) -->
                 <div id="panel-files" class="tab-panel active">
-                    <div id="dropzone-files" class="dropzone-box">
+                    <label id="dropzone-files" for="input-files" class="dropzone-box">
                         <input type="file" id="input-files" multiple accept=".pdf" class="hidden-file-input">
                         <div class="dropzone-inner">
                             <div class="icon-circle">
@@ -1041,12 +1041,12 @@ tr.row-warning {
                             <p class="desc">支持按 Shift / Ctrl / Cmd 键批量选择多个 .pdf 报告文件</p>
                             <div id="selected-files-count" class="file-name-badge hidden"></div>
                         </div>
-                    </div>
+                    </label>
                 </div>
 
                 <!-- ZIP 面板 -->
                 <div id="panel-zip" class="tab-panel">
-                    <div id="dropzone-zip" class="dropzone-box">
+                    <label id="dropzone-zip" for="input-zip" class="dropzone-box">
                         <input type="file" id="input-zip" accept=".zip" multiple class="hidden-file-input">
                         <div class="dropzone-inner">
                             <div class="icon-circle">
@@ -1085,7 +1085,7 @@ tr.row-warning {
                     </div>
                     <div class="progress-track">
                         <div id="progress-bar-fill" class="progress-bar-fill"></div>
-                    </div>
+                    </label>
                 </div>
             </section>
 
@@ -1108,7 +1108,7 @@ tr.row-warning {
                     </div>
                 </div>
 
-                <div id="dropzone-startdates" class="dropzone-box compact-dropzone">
+                <label id="dropzone-startdates" for="input-startdates" class="dropzone-box compact-dropzone">
                     <input type="file" id="input-startdates" accept=".xlsx,.csv" class="hidden-file-input">
                     <div class="dropzone-inner horizontal">
                         <div class="icon-circle small">
@@ -1119,7 +1119,7 @@ tr.row-warning {
                             <p class="desc">系统自动将受试者编号去横杠匹配 (如 01-001 -> 01001)，按 7 天为一个周期精准计算第 1 周到第 52 周复发归属</p>
                         </div>
                         <div id="start-dates-status-badge" class="file-name-badge warning">未上传起始日期表 (可在弹窗中手动手填或直接上传)</div>
-                    </div>
+                    </label>
                 </div>
             </section>
 
@@ -1226,7 +1226,7 @@ tr.row-warning {
                             <span id="current-page-num" class="page-current">1</span>
                             <button id="next-page-btn" class="btn btn-secondary compact" disabled>下一页</button>
                         </div>
-                    </div>
+                    </label>
                 </div>
             </section>
         </main>
