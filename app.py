@@ -447,14 +447,9 @@ if __name__ == '__main__':
     print(f"========== 动态心电图 PDF 转 Excel 医生端系统已启动 ==========")
     print(f"访问网址: http://127.0.0.1:{port}")
     
-    # 1.5秒后在后端自动弹窗调起浏览器
-    try:
-        if os.environ.get("AUTO_OPEN_BROWSER", "1") != "0":
+    # 1.5秒后在后端自动弹窗调起浏览器 (AUTO_OPEN_BROWSER=0 时静默)
+    if os.environ.get("AUTO_OPEN_BROWSER", "1") != "0":
         try:
             threading.Timer(1.5, lambda: webbrowser.open(f"http://127.0.0.1:{port}")).start()
         except Exception:
             pass
-    except Exception:
-        pass
-
-    app.run(host='0.0.0.0', port=port, debug=False)
