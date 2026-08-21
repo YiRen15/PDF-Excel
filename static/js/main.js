@@ -164,11 +164,10 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             startParseBtn.disabled = selectedPdfFiles.length === 0;
         }
-        if (parsedData && parsedData.length > 0) {
-            if (downloadBtn) downloadBtn.disabled = false;
-            if (downloadWeeklyBtn) downloadWeeklyBtn.disabled = false;
-            if (downloadWeeklyBtn2) downloadWeeklyBtn2.disabled = false;
-        }
+        const hasData = (parsedData && parsedData.length > 0);
+        if (downloadBtn) downloadBtn.disabled = !hasData;
+        if (downloadWeeklyBtn) downloadWeeklyBtn.disabled = !hasData;
+        if (downloadWeeklyBtn2) downloadWeeklyBtn2.disabled = !hasData;
     } else {
             startParseBtn.disabled = selectedPdfFiles.length === 0;
         }
