@@ -306,7 +306,6 @@ body {
 }
 
 .btn:disabled {
-    opacity: 0.45;
     cursor: not-allowed;
     box-shadow: none;
 }
@@ -854,4 +853,26 @@ tr.row-warning {
     opacity: 1 !important;
     box-shadow: none !important;
     cursor: not-allowed !important;
+}
+
+
+/* 禁用状态：纯色高对比、无发虚透明度 */
+.btn:disabled {
+    cursor: not-allowed !important;
+    box-shadow: none !important;
+    transform: none !important;
+}
+
+.btn-blue:disabled {
+    background: #dbeafe !important;
+    color: #1d4ed8 !important;
+    border: 1px solid #93c5fd !important;
+    opacity: 1 !important;
+}
+
+.btn-emerald:disabled {
+    background: #d1fae5 !important;
+    color: #047857 !important;
+    border: 1px solid #6ee7b7 !important;
+    opacity: 1 !important;
 }
