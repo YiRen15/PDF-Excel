@@ -856,23 +856,33 @@ tr.row-warning {
 }
 
 
-/* 禁用状态：纯色高对比、无发虚透明度 */
-.btn:disabled {
+
+/* 彻底覆盖 Chrome 原生 button:disabled 灰色滤镜 */
+button:disabled,
+button:disabled *,
+.btn:disabled,
+.btn:disabled * {
     cursor: not-allowed !important;
     box-shadow: none !important;
     transform: none !important;
 }
 
-.btn-blue:disabled {
-    background: #dbeafe !important;
-    color: #1d4ed8 !important;
-    border: 1px solid #93c5fd !important;
-    opacity: 1 !important;
+.btn-blue:disabled,
+.btn-blue:disabled span,
+.btn-blue:disabled svg {
+    background-color: #2563eb !important;
+    color: #ffffff !important;
+    stroke: #ffffff !important;
+    opacity: 0.65 !important;
+    border-color: transparent !important;
 }
 
-.btn-emerald:disabled {
-    background: #d1fae5 !important;
-    color: #047857 !important;
-    border: 1px solid #6ee7b7 !important;
-    opacity: 1 !important;
+.btn-emerald:disabled,
+.btn-emerald:disabled span,
+.btn-emerald:disabled svg {
+    background-color: #10b981 !important;
+    color: #ffffff !important;
+    stroke: #ffffff !important;
+    opacity: 0.65 !important;
+    border-color: transparent !important;
 }
