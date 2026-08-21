@@ -824,3 +824,14 @@ tr.row-warning {
     font-size: 11px;
     color: #94a3b8;
 }
+
+
+.btn-blue {
+    background: #2563eb;
+    color: #ffffff;
+}
+
+.btn-blue:hover:not(:disabled) {
+    background: #1d4ed8;
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+}
