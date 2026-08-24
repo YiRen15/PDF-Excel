@@ -318,7 +318,7 @@ def parse_single_pdf(pdf_path):
                     svt_burden_val = float(m_b2.group(1))
 
         # 9. 检查结果判定 (ECGORRES) - 第一步: 判定是否有房颤/规则房速/窦性心律
-        conclusion_match = re.search(r'结论[:：]?(.*?)(?=24小时数据图|24小时散点图|24小时趋势图|报告医生|报告医师|$)', text_no_space)
+        conclusion_match = re.search(r'结论[:：]?(.*?)(?=24小时数据图|24小时散点图|24小时趋势图|报告医生|报告医师|报告仅供参考|请结合临床|$)', text_no_space)
         conclusion_text = conclusion_match.group(1) if conclusion_match else text_no_space
         
         # 中性短语提前擦除 (如 '不排除...')，既不误杀前面确诊结论，也不误诊无确诊报告
@@ -396,7 +396,7 @@ def parse_single_pdf(pdf_path):
             selected_codes.append("3")
             
         # 规则 1: 窦性心律 / 起搏心律 (包含完整与省略写法, 包含'起搏', 剔除'异位心律')
-        sinus_keywords = ["窦性心律", "窦性心动", "窦性动过缓", "窦动过缓", "窦性", "起搏", "起搏心律", "起搏心电图", "起搏器"]
+        sinus_keywords = ["窦性心律", "窦性心动", "窦性动过缓", "窦动过缓", "窦性", "起搏", "起搏心律", "起搏心电图", "起搏器", "窦性心律不齐", "窦性停搏", "窦缓"]
         sinus_negated = re.search(r'(未见|无|未发现|未检测到|否认|无明显|排除)[^\\n，,；;。\\d]*?(窦性心律|窦性心动|窦性动过缓|窦动过缓|窦性|起搏)', clean_conclusion_text)
         has_sinus = any(k in clean_conclusion_text for k in sinus_keywords) and not sinus_negated
         has_any_af = ("2" in selected_codes) or ("3" in selected_codes)
