@@ -82,7 +82,7 @@ def parse_hms(dur_str):
         return hours, mins, secs
 
     # 2. 冒号分隔匹配: HH:MM:SS 或 HH:MM (如 23:45:12, 23:45, 07:33:00, 23：44)
-    m_time = re.search(r'(\d{1,2})[:：](\d{1,2})(?:[:：](\d{1,2}))?', dur_str)
+    m_time = re.search(r'(\d+)[:：](\d{1,2})(?:[:：](\d{1,2}))?', dur_str)
     if m_time:
         if m_time.group(3):
             return int(m_time.group(1)), int(m_time.group(2)), int(m_time.group(3))
@@ -282,7 +282,15 @@ def parse_single_pdf(pdf_path):
             fl_dur_str = fl_block_match.group(1).strip()
         
         fl_hours, fl_mins, fl_secs = parse_hms(fl_dur_str)
-        fl_active = (fl_beats > 0 or fl_hours > 0 or fl_mins > 0)
+        
+        # 全程持续性心房扑动 / 全程房扑 智能对齐监测时长
+        if re.search(r'全程(?:持续性)?[^\n，,；;。]*?(?:心房扑动|房扑)', clean_conclusion_text):
+            if fl_hours == 0 and fl_mins == 0 and fl_secs == 0:
+                fl_hours = int(data.get('ECGDURH', 0)) if str(data.get('ECGDURH', '')).isdigit() else 0
+                fl_mins = int(data.get('ECGDURM', 0)) if str(data.get('ECGDURM', '')).isdigit() else 0
+                fl_secs = 0
+                
+        fl_active = (fl_beats > 0 or fl_hours > 0 or fl_mins > 0 or bool(re.search(r'全程(?:持续性)?[^\n，,；;。]*?(?:心房扑动|房扑)', clean_conclusion_text)))
         
         # 8.1 规则的房性心动过速 (室上速 + 房扑) 负荷精细化判定
         # 1. 房扑负荷原值/保底计算
@@ -301,6 +309,8 @@ def parse_single_pdf(pdf_path):
                     fl_burden_val = "小于1"
                 else:
                     fl_burden_val = int(round(calc_fl_pct))
+            elif re.search(r'全程(?:持续性)?[^\n，,；;。]*?(?:心房扑动|房扑)', clean_conclusion_text):
+                fl_burden_val = 100
 
         # 2. 房速负荷原生打印值 (不自动公式计算)
         svt_burden_val = None
