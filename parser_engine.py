@@ -22,7 +22,7 @@ except ImportError:
 def parse_duration_to_seconds(text):
     if not text:
         return 0, ""
-    pattern = r'(?:最长|最大)[^0-9\n]{0,20}?(?:持续|持续性)?[^0-9\n]{0,20}?时间[^0-9\n]{0,10}?[\s\n]*?(\d+)\s*(小时|h|hr|分|分钟|秒|s|sec|秒钟)?(?:\s*(\d+)\s*(分|分钟|秒|s|sec|秒钟)?)?'
+    pattern = r'(?:最长|最大)[^0-9\n]{0,30}?(?:持续|持续性)?[^0-9\n]{0,30}?时间[^0-9\n]{0,10}?[\s\n]*?(\d+)\s*(小时|h|hr|分钟|分|秒钟|秒|s|sec)?[\s\n]*?(?:(\d+)\s*(分钟|分|秒钟|秒|s|sec)?)?'
     m = re.search(pattern, text)
     if m:
         v1 = int(m.group(1))
