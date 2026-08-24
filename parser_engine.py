@@ -22,33 +22,34 @@ except ImportError:
 def parse_duration_to_seconds(text):
     if not text:
         return 0, ""
-    pattern = r'(?:最长|最大)[^0-9\n]{0,30}?(?:持续|持续性)?[^0-9\n]{0,30}?时间[^0-9\n]{0,10}?[\s\n]*?(\d+)\s*(小时|h|hr|分钟|分|秒钟|秒|s|sec)?[\s\n]*?(?:(\d+)\s*(分钟|分|秒钟|秒|s|sec)?)?'
-    m = re.search(pattern, text)
-    if m:
-        v1 = int(m.group(1))
-        u1 = m.group(2) or 's'
-        v2 = int(m.group(3)) if m.group(3) else 0
-        u2 = m.group(4) or ''
-        
-        total_sec = 0
-        fmt_str = ""
-        if u1 in ['小时', 'h', 'hr']:
-            total_sec += v1 * 3600
-            if '分' in u2:
-                total_sec += v2 * 60
-            elif '秒' in u2 or 's' in u2:
-                total_sec += v2
-            fmt_str = f"{v1}小时{v2}分" if v2 else f"{v1}小时"
-        elif u1 in ['分钟', '分']:
-            total_sec += v1 * 60
-            if '秒' in u2 or 's' in u2:
-                total_sec += v2
-            fmt_str = f"{v1}分{v2}秒" if v2 else f"{v1}分"
-        else:
-            total_sec += v1
-            fmt_str = f"{v1}秒"
+    
+    dur_snippet = ""
+    m_clause = re.search(r'(?:最长|最大)[^0-9\n]{0,30}?(?:持续|持续性)?[^0-9\n]{0,30}?时间[^0-9\n]{0,10}?[\s\n]*?([0-9小时h分min秒ssec钟：:\s\.\d]+?)(?=[,，;；。]|$)', text, re.I)
+    if m_clause:
+        dur_snippet = m_clause.group(1)
+    else:
+        dur_snippet = text
+
+    m_h = re.search(r'(\d+(?:\.\d+)?)\s*(?:小时|h|hr|时)', dur_snippet, re.I)
+    m_m = re.search(r'(\d+)\s*(?:分钟?|min|分|m(?!s))', dur_snippet, re.I)
+    m_s = re.search(r'(\d+)\s*(?:秒钟?|sec|s)', dur_snippet, re.I)
+
+    if m_h or m_m or m_s:
+        h_val = int(float(m_h.group(1))) if m_h else 0
+        m_val = int(m_m.group(1)) if m_m else 0
+        s_val = int(m_s.group(1)) if m_s else 0
+
+        total_sec = h_val * 3600 + m_val * 60 + s_val
+
+        fmt_parts = []
+        if h_val > 0: fmt_parts.append(f"{h_val}小时")
+        if m_val > 0: fmt_parts.append(f"{m_val}分")
+        if s_val > 0: fmt_parts.append(f"{s_val}秒")
+
+        fmt_str = "".join(fmt_parts) if fmt_parts else f"{total_sec}秒"
         return total_sec, fmt_str
-    return 0, ""
+
+    return parse_hms(dur_snippet)
 
 def parse_hms(dur_str):
     if not dur_str:
