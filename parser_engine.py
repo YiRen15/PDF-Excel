@@ -23,11 +23,18 @@ def parse_duration_to_seconds(text):
     if not text:
         return 0, ""
     
-    dur_snippet = ""
-    m_clause = re.search(r'(?:最长|最大)[^0-9\n]{0,30}?(?:持续|持续性)?[^0-9\n]{0,30}?时间[^0-9\n]{0,10}?[\s\n]*?([0-9小时h分min秒ssec钟：:\s\.\d]+?)(?=[,，;；。]|$)', text, re.I)
-    if m_clause:
-        dur_snippet = m_clause.group(1)
-    else:
+    # 1. 宽泛匹配任何持续/最长/发作/时间引导的句段 (如 最长持续时间为18分53秒、持续时间18分53秒、持续18分53秒、最长阵18分53秒等)
+    m_clause = re.search(r'(?:最长|最大|平均|总|发作|持续|持续性|最长阵|长阵|阵发|长达)[^0-9\n]{0,25}?(?:持续|持续性|发作|时间|达|为|有)?[\s\n:：为有达]*?([0-9]+(?:\.[0-9]+)?\s*(?:小时|h|hr|时|分钟?|min|分|秒钟?|sec|s)(?:[0-9\s小时h分min秒ssec钟：:\.\d]*?))(?=[,，;；。]|$)', text, re.I)
+    
+    dur_snippet = m_clause.group(1) if m_clause else ""
+    
+    if not dur_snippet:
+        # 2. 尝试提取包含冒号时间格式 (如 持续时间: 39:11 或 最长 00:18:53)
+        m_time_clause = re.search(r'(?:最长|最大|持续|时间)[:：为有达\s]*?(\d+[:：]\d+(?:[:：]\d+)?)', text, re.I)
+        if m_time_clause:
+            dur_snippet = m_time_clause.group(1)
+
+    if not dur_snippet:
         return 0, ""
 
     m_h = re.search(r'(\d+(?:\.\d+)?)\s*(?:小时|h|hr|时)', dur_snippet, re.I)
@@ -49,9 +56,13 @@ def parse_duration_to_seconds(text):
         fmt_str = "".join(fmt_parts) if fmt_parts else f"{total_sec}秒"
         return total_sec, fmt_str
 
-    h, m, s = parse_hms(dur_snippet)
-    total_sec = h * 3600 + m * 60 + s
-    if total_sec > 0:
+    # 冒号格式
+    m_colon = re.search(r'(\d+)[:：](\d{1,2})(?:[:：](\d{1,2}))?', dur_snippet)
+    if m_colon:
+        h = int(m_colon.group(1))
+        m = int(m_colon.group(2))
+        s = int(m_colon.group(3)) if m_colon.group(3) else 0
+        total_sec = h * 3600 + m * 60 + s
         fmt_parts = []
         if h > 0: fmt_parts.append(f"{h}小时")
         if m > 0: fmt_parts.append(f"{m}分")
@@ -68,7 +79,7 @@ def parse_hms(dur_str):
     # 1. 中/英文单位显式匹配 (支持带小数 23.5小时、23小时45分12秒、23h45m12s 等)
     m_h = re.search(r'(\d+(?:\.\d+)?)\s*(?:小时|h|时)', dur_str, re.I)
     m_m = re.search(r'(\d+)\s*(?:分钟?|min|分|m(?!s))', dur_str, re.I)
-    m_s = re.search(r'(\d+)\s*(?:秒|sec|s)', dur_str, re.I)
+    m_s = re.search(r'(\d+)\s*(?:秒钟?|sec|s)', dur_str, re.I)
     
     if m_h or m_m or m_s:
         hours = 0
