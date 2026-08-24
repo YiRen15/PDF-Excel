@@ -247,6 +247,13 @@ def parse_single_pdf(pdf_path):
             
         af_hours, af_mins, af_secs = parse_hms(af_dur_str)
         
+        # 全程持续性心房颤动 / 全程房颤 智能对齐监测时长
+        if re.search(r'全程(?:持续性)?[^\n，,；;。]*?(?:心房颤动|房颤)', clean_conclusion_text):
+            if af_hours == 0 and af_mins == 0 and af_secs == 0:
+                af_hours = int(data.get('ECGDURH', 0)) if str(data.get('ECGDURH', '')).isdigit() else 0
+                af_mins = int(data.get('ECGDURM', 0)) if str(data.get('ECGDURM', '')).isdigit() else 0
+                af_secs = 0
+        
         has_printed_afib_text = bool(re.search(r'(?:占总心搏|占比|负荷)[:：]?\s*(?:小于|＜|<|不足)\s*1(?:\.0)?', af_sec))
         m_af_pct_check = re.search(r'房颤心搏[:：]\d+[(（]?次[)）]?[,，]?\s*(?:占总心搏|占比|负荷)[:：]?(\d+(?:\.\d+)?)[(（]?[%％][)）]?', af_sec)
         if not m_af_pct_check:
@@ -464,6 +471,8 @@ def parse_single_pdf(pdf_path):
                     af_burden_val = "小于1"
                 else:
                     af_burden_val = int(round(calc_af_pct))
+            elif af_burden_val is None and re.search(r'全程(?:持续性)?[^\n，,；;。]*?(?:心房颤动|房颤)', clean_conclusion_text):
+                af_burden_val = 100
 
             if af_burden_val is None:
                 af_burden_val = 0
