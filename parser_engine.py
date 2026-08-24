@@ -28,7 +28,7 @@ def parse_duration_to_seconds(text):
     if m_clause:
         dur_snippet = m_clause.group(1)
     else:
-        dur_snippet = text
+        return 0, ""
 
     m_h = re.search(r'(\d+(?:\.\d+)?)\s*(?:小时|h|hr|时)', dur_snippet, re.I)
     m_m = re.search(r'(\d+)\s*(?:分钟?|min|分|m(?!s))', dur_snippet, re.I)
@@ -49,7 +49,16 @@ def parse_duration_to_seconds(text):
         fmt_str = "".join(fmt_parts) if fmt_parts else f"{total_sec}秒"
         return total_sec, fmt_str
 
-    return parse_hms(dur_snippet)
+    h, m, s = parse_hms(dur_snippet)
+    total_sec = h * 3600 + m * 60 + s
+    if total_sec > 0:
+        fmt_parts = []
+        if h > 0: fmt_parts.append(f"{h}小时")
+        if m > 0: fmt_parts.append(f"{m}分")
+        if s > 0: fmt_parts.append(f"{s}秒")
+        return total_sec, "".join(fmt_parts)
+
+    return 0, ""
 
 def parse_hms(dur_str):
     if not dur_str:
