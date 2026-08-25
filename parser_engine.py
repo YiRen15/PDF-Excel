@@ -301,18 +301,27 @@ def parse_single_pdf(pdf_path):
         has_printed_afib_val = bool(m_af_pct_check)
         
         # 8. 规则的房性心动过速 (室上速) 和 房扑
-        svt_block_match = re.search(r'室上性节律.*?二联律:.*?室上速[:：](\d+)[(（]?阵[)）]?', text_no_space)
+        sv_sec_m = re.search(r'室上性节律.*?(?=房颤分析|房扑分析|起搏分析|ST段分析|结论|$)', text_no_space)
+        sv_sec = sv_sec_m.group(0) if sv_sec_m else text_no_space
+
+        svt_block_match = re.search(r'(?:室上速|短阵房速|室上性心动过速|短阵室上速|房速)[:：](\d+)[(（]?(?:阵|次)?[)）]?', sv_sec)
         if not svt_block_match:
-            svt_block_match = re.search(r'室上速[:：](\d+)[(（]?阵[)）]?', text_no_space)
+            svt_block_match = re.search(r'(?:室上速|短阵房速|室上性心动过速|短阵室上速|房速)[:：](\d+)', text_no_space)
         svt_runs = int(svt_block_match.group(1)) if svt_block_match else 0
         
-        m_svt_dur = re.search(r'最长持续时间(?:为)?(\d+)(?:s|秒)', text_no_space)
-        svt_dur_sec = int(m_svt_dur.group(1)) if m_svt_dur else 0
-        if not svt_dur_sec and svt_runs > 0:
-            m_svt_gen, _ = parse_duration_to_seconds(text_no_space)
-            if m_svt_gen > 0:
-                svt_dur_sec = m_svt_gen
-        if svt_runs == 0:
+        # 表格区域持续时间智能提取
+        svt_dur_sec = 0
+        m_svt_dur = re.search(r'(?:持续时间|最长持续时间|最长阵持续时间|最长持续|最长阵|时间)[:：为有达\s]*?([0-9:：小时h分min秒s]+)', sv_sec)
+        if m_svt_dur:
+            t_sec, _ = parse_duration_to_seconds(m_svt_dur.group(0))
+            if t_sec > 0:
+                svt_dur_sec = t_sec
+        if not svt_dur_sec:
+            m_svt_dur_num = re.search(r'最长持续时间(?:为)?(\d+)(?:s|秒)', text_no_space)
+            if m_svt_dur_num:
+                svt_dur_sec = int(m_svt_dur_num.group(1))
+                
+        if svt_runs == 0 and '室上速' not in sv_sec:
             svt_dur_sec = 0
             
         svt_active = (svt_dur_sec >= 30)
@@ -385,21 +394,26 @@ def parse_single_pdf(pdf_path):
         # 中性短语提前擦除 (如 '不排除...')，既不误杀前面确诊结论，也不误诊无确诊报告
         clean_conclusion_text = re.sub(r'不排除[^\n，,；;。]*', '', conclusion_text)
         
-        # 9.1 从结论中精准切片出“房速/室上速专属语句”
-        svt_clause_text = ""
-        svt_clause_match = re.search(r'([^，,；;。\n]*?(?:房性心动过速|房速|室上速|室上性心动过速)[^。;\n]*?)(?=[。;\n]|$)', conclusion_text)
-        if svt_clause_match:
-            svt_clause_text = svt_clause_match.group(1)
+        # 9.1 从结论中精准切片出“房速/室上速专属语句” (句子级绝对隔离，绝不串扰停搏/ST等其他时间)
+        concl_sentences = [s.strip() for s in re.split(r'[。;\n]|(?=[1-9]、)', clean_conclusion_text) if s.strip()]
+        svt_sentences = [s for s in concl_sentences if any(k in s for k in ['房性心动过速', '房速', '室上速', '室上性心动过速', '短阵房速', '短阵室上速'])]
 
         # 初始化异常告警标志与告警日志
         data['has_warning'] = False
         data['warnings'] = []
 
-        # 9.2 全量升级：使用全能时间解析器 parse_duration_to_seconds 扫描整段结论提取最长持续时间
+        # 9.2 专属句子优先提取最长持续时间，若专属句子未提取到再全局兜底
         concl_svt_dur_sec = 0
-        svt_sec_found, svt_fmt_found = parse_duration_to_seconds(clean_conclusion_text)
-        if svt_sec_found > 0:
-            concl_svt_dur_sec = svt_sec_found
+        for svt_s in svt_sentences:
+            s_sec, _ = parse_duration_to_seconds(svt_s)
+            if s_sec > 0:
+                concl_svt_dur_sec = s_sec
+                break
+                
+        if concl_svt_dur_sec == 0:
+            svt_sec_found, svt_fmt_found = parse_duration_to_seconds(clean_conclusion_text)
+            if svt_sec_found > 0:
+                concl_svt_dur_sec = svt_sec_found
 
         # 保底持续时间 (优先采用结论专属提取)
         effective_svt_dur_sec = max(concl_svt_dur_sec, svt_dur_sec)
@@ -429,14 +443,6 @@ def parse_single_pdf(pdf_path):
 
         selected_codes = []
         
-        # 1. 结论文本中性擦除 ('不排除...' 擦除短语)
-        clean_conclusion_text = re.sub(r'不排除[^\n，,；;。]*', '', conclusion_text)
-        
-        # 2. 全量通用时长解析 (支持跨行、分钟/秒/小时等变体)
-        concl_dur_sec, concl_dur_fmt = parse_duration_to_seconds(clean_conclusion_text)
-        effective_svt_dur_sec = max(concl_dur_sec, svt_dur_sec)
-        svt_valid = (effective_svt_dur_sec >= 30)
-
         # 规则 2: 房颤 (双通道判定: 上层房颤/房扑数据表 + 下层确诊结论)
         afib_negated = re.search(r'(未见|无|未发现|未检测到|不伴|否认|未出现|无明显|排除)[^\\n，,；;。]*?(房颤|心房颤动|心房扑动|房扑)', clean_conclusion_text)
         has_afib_text = any(k in clean_conclusion_text for k in ["心房颤动", "房颤"]) and not afib_negated
@@ -1193,4 +1199,3 @@ def write_ecg_measurement_excel(data_list, template_path, output_path):
         current_row += 1
 
     wb.save(output_path)
-
