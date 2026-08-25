@@ -19,6 +19,30 @@ except ImportError:
     HAS_FITZ = False
     import pdfplumber
 
+def safe_int(val, default=0):
+    """安全转换为整数，防御 '/', '小于1', None 等非法输入"""
+    if val is None:
+        return default
+    try:
+        s = str(val).strip()
+        if not s or s == '/' or s == '需人工复核' or '小于' in s:
+            return default
+        return int(float(s))
+    except (ValueError, TypeError):
+        return default
+
+def safe_float(val, default=0.0):
+    """安全转换为浮点数，防御 '/', '小于1', None 等非法输入"""
+    if val is None:
+        return default
+    try:
+        s = str(val).strip()
+        if not s or s in ('/', '小于1', '<1', '＜1') or '人工' in s:
+            return default
+        return float(s)
+    except (ValueError, TypeError):
+        return default
+
 def parse_duration_to_seconds(text):
     if not text:
         return 0, ""
@@ -191,11 +215,11 @@ def parse_single_pdf(pdf_path):
         data['ECGDURM_U'] = "分"
         
         # 4. 结束监测日期 (ECGENDAT) 自动推算 = 开始时间 + 监测时长
-        if data.get('ECGSTDAT') and (int(data.get('ECGDURH', 0)) > 0 or int(data.get('ECGDURM', 0)) > 0):
+        if data.get('ECGSTDAT') and (safe_int(data.get('ECGDURH', 0)) > 0 or safe_int(data.get('ECGDURM', 0)) > 0):
             try:
                 st_str = data['ECGSTDAT']
-                dh = int(data.get('ECGDURH', 0))
-                dm = int(data.get('ECGDURM', 0))
+                dh = safe_int(data.get('ECGDURH', 0))
+                dm = safe_int(data.get('ECGDURM', 0))
                 d_part, t_part = st_str.split(' ')
                 y, m_val, d = [int(x) for x in d_part.split('-')]
                 hh, mm = [int(x) for x in t_part.split(':')]
@@ -228,7 +252,7 @@ def parse_single_pdf(pdf_path):
         data['ECGRR'] = int(m_rr.group(1)) if m_rr else "/"
         data['ECGRR_U'] = "ms"
         
-                # 分析的总心搏数 (第一层提取)
+        # 分析的总心搏数 (第一层提取)
         m_beats = re.search(r'分析的心搏数[:：](\d+)[(（]?次[)）]?', text_no_space)
         if not m_beats:
             m_beats = re.search(r'分析的心搏数[:：]?(\d+)', text_no_space)
@@ -284,6 +308,10 @@ def parse_single_pdf(pdf_path):
         
         m_svt_dur = re.search(r'最长持续时间(?:为)?(\d+)(?:s|秒)', text_no_space)
         svt_dur_sec = int(m_svt_dur.group(1)) if m_svt_dur else 0
+        if not svt_dur_sec and svt_runs > 0:
+            m_svt_gen, _ = parse_duration_to_seconds(text_no_space)
+            if m_svt_gen > 0:
+                svt_dur_sec = m_svt_gen
         if svt_runs == 0:
             svt_dur_sec = 0
             
@@ -454,7 +482,7 @@ def parse_single_pdf(pdf_path):
                 code_opt = "房颤"
             elif code_raw == "3":
                 code_opt = "规则的房性心动过速"
-            elif "2" in code_raw and "3" in code_raw:
+            elif code_raw in ("2,3", "3,2") or ("2" in code_raw and "3" in code_raw and "1" not in code_raw):
                 code_opt = "房颤,规则的房性心动过速"
             else:
                 code_opt = "需要人工复核"
@@ -524,15 +552,27 @@ def parse_single_pdf(pdf_path):
                 data['ECGATBURD'] = "报告房速负荷需要人工检查"
                 data['ECGATBURD_U'] = "%"
             elif fl_burden_val is not None and svt_burden_val is not None:
-                v_fl = 0 if fl_burden_val == "小于1" else float(fl_burden_val)
-                total_v = v_fl + float(svt_burden_val)
-                data['ECGATBURD'] = int(total_v) if float(total_v).is_integer() else round(total_v, 2)
+                v_fl = safe_float(fl_burden_val, 0.0)
+                v_svt = safe_float(svt_burden_val, 0.0)
+                if (fl_burden_val == "小于1" and v_svt == 0) or (svt_burden_val == "小于1" and v_fl == 0):
+                    data['ECGATBURD'] = "小于1"
+                else:
+                    total_v = v_fl + v_svt
+                    data['ECGATBURD'] = int(total_v) if float(total_v).is_integer() else round(total_v, 2)
                 data['ECGATBURD_U'] = "%"
             elif svt_burden_val is not None:
-                data['ECGATBURD'] = int(svt_burden_val) if float(svt_burden_val).is_integer() else round(svt_burden_val, 2)
+                if svt_burden_val == "小于1":
+                    data['ECGATBURD'] = "小于1"
+                else:
+                    v_s = safe_float(svt_burden_val)
+                    data['ECGATBURD'] = int(v_s) if float(v_s).is_integer() else round(v_s, 2)
                 data['ECGATBURD_U'] = "%"
             elif fl_burden_val is not None:
-                data['ECGATBURD'] = int(fl_burden_val) if isinstance(fl_burden_val, (int, float)) and float(fl_burden_val).is_integer() else fl_burden_val
+                if fl_burden_val == "小于1":
+                    data['ECGATBURD'] = "小于1"
+                else:
+                    v_f = safe_float(fl_burden_val)
+                    data['ECGATBURD'] = int(v_f) if float(v_f).is_integer() else round(v_f, 2)
                 data['ECGATBURD_U'] = "%"
             else:
                 data['ECGATBURD'] = "报告房速负荷需要人工检查"
@@ -680,12 +720,8 @@ def write_all_to_excel(data_list, template_path, output_path):
         "规则的房性心动过速负荷最长持续时间（秒）_单位": "ECGATDURS_U",
         "房早负荷": "ECGPBBURD",
         "房早负荷_单位": "ECGPBBURD_U",
-        "房早负荷": "ECGSVPBBURD",
-        "房早负荷_单位": "ECGSVPBBURD_U",
-        "房早负荷": "ECGPBBURD",
-        "房早负荷_单位": "ECGPBBURD_U",
-        "房早负荷": "ECGSVPBBURD",
-        "房早负荷_单位": "ECGSVPBBURD_U"
+        "室上早负荷": "ECGSVPBBURD",
+        "室上早负荷_单位": "ECGSVPBBURD_U"
     }
 
     # 智能识别表头行数与数据起写行 (默认从第 3 行写入，直接覆盖第 3 行样例行)
@@ -955,8 +991,13 @@ def parse_ecg_measurement_pdf(pdf_path):
     """
     filename = os.path.basename(pdf_path)
     try:
-        doc = fitz.open(pdf_path)
-        text = doc[0].get_text()
+        if HAS_FITZ:
+            doc = fitz.open(pdf_path)
+            text = doc[0].get_text()
+            doc.close()
+        else:
+            with pdfplumber.open(pdf_path) as pdf:
+                text = pdf.pages[0].extract_text() or ""
     except Exception as e:
         return {
             'ID号': os.path.splitext(filename)[0],
