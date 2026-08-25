@@ -149,6 +149,11 @@ def parse_single_pdf(pdf_path):
 
         text_no_space = re.sub(r'\s+', '', text)
         data = {}
+
+        # 提前提取结论文本与清洗中性词 (供全程持续性房颤/房扑/房速判定全局使用)
+        conclusion_match = re.search(r'结论[:：]?(.*?)(?=24小时数据图|24小时散点图|24小时趋势图|报告医生|报告医师|报告仅供参考|请结合临床|$)', text_no_space)
+        conclusion_text = conclusion_match.group(1) if conclusion_match else text_no_space
+        clean_conclusion_text = re.sub(r'不排除[^\n，,；;。]*', '', conclusion_text)
         
         # 1. 受试者编号 (用户姓名) - 匹配到 '年龄'、'性别' 等字段为止
         m = re.search(r'(?:用户姓名|受试者姓名|患者姓名|姓名)[:：](.*?)(?=年龄|性别|病历号|床号|科室|报告日期)', text_no_space)
