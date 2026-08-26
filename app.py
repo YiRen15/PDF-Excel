@@ -227,10 +227,12 @@ def upload_and_process():
         elif 'files' in request.files:
             uploaded_files = request.files.getlist('files')
             pdf_paths = []
-            for file in uploaded_files:
+            for idx, file in enumerate(uploaded_files):
                 if file.filename and file.filename.lower().endswith('.pdf'):
-                    save_path = os.path.join(temp_dir, file.filename)
-                    os.makedirs(os.path.dirname(save_path), exist_ok=True)
+                    # 独立子目录存储，杜绝同名文件覆盖
+                    sub_f_dir = os.path.join(temp_dir, f"upload_{idx}")
+                    os.makedirs(sub_f_dir, exist_ok=True)
+                    save_path = os.path.join(sub_f_dir, os.path.basename(file.filename))
                     file.save(save_path)
                     pdf_paths.append(save_path)
                     

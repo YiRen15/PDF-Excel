@@ -179,26 +179,52 @@ def parse_single_pdf(pdf_path):
         conclusion_text = conclusion_match.group(1) if conclusion_match else text_no_space
         clean_conclusion_text = re.sub(r'不排除[^\n，,；;。]*', '', conclusion_text)
         
-        # 1. 受试者编号 (用户姓名) - 匹配到 '年龄'、'性别' 等字段为止
+        # 1. 受试者编号 (用户姓名) - 匹配到 '年龄'、'性别' 等字段为止 (支持文件名含“原始”时追加 -原始 后缀)
         m = re.search(r'(?:用户姓名|受试者姓名|患者姓名|姓名)[:：](.*?)(?=年龄|性别|病历号|床号|科室|报告日期)', text_no_space)
         if not m:
             m = re.search(r'(?:用户姓名|受试者姓名|患者姓名|姓名)[:：](.*)', text_no_space)
-        data['SUBJID'] = m.group(1) if m and m.group(1) else ""
+        subjid = m.group(1).strip() if m and m.group(1) else ""
+        
+        # 检查文件名是否包含“原始”二字
+        filename_base = os.path.splitext(filename)[0]
+        if "原始" in filename_base or "原始" in os.path.basename(pdf_path):
+            if subjid and not subjid.endswith("-原始"):
+                subjid = f"{subjid}-原始"
+            elif not subjid:
+                subjid = f"{filename_base}"
+        data['SUBJID'] = subjid
         
         # 1.1 年龄提取
         m_age = re.search(r'年龄[:：](\d+)[岁岁]?', text_no_space)
         data['AGE'] = int(m_age.group(1)) if m_age else "/"
         data['ECGANAG'] = data['AGE']
         
-        # 2. 开始监测日期 (yyyy-MM-dd HH:mm)
-        m = re.search(r'(?:记录日期|测试日期|监测日期|检测日期)[:：](\d{4}[-/.]\d{2}[-/.]\d{2})(\d{2}:\d{2})', text_no_space)
+        # 2. 开始监测日期 (支持完整 yyyy-MM-dd HH:mm:ss 及 HH:mm)
+        m = re.search(r'(?:记录日期|测试日期|监测日期|检测日期)[:：](\d{4}[-/.]\d{1,2}[-/.]\d{1,2})[\sT]*(\d{1,2}:\d{2}(?::\d{2})?)', text_no_space)
         if m:
             date_part = m.group(1).replace('/', '-').replace('.', '-')
+            d_parts = date_part.split('-')
+            if len(d_parts) == 3:
+                date_part = f"{int(d_parts[0]):04d}-{int(d_parts[1]):02d}-{int(d_parts[2]):02d}"
             time_part = m.group(2)
             data['ECGSTDAT'] = f"{date_part} {time_part}"
         else:
-            m = re.search(r'(?:记录日期|测试日期|监测日期|检测日期)[:：](\d{4}[-/.]\d{2}[-/.]\d{2})', text_no_space)
-            data['ECGSTDAT'] = m.group(1).replace('/', '-').replace('.', '-') if m else ""
+            m = re.search(r'(?:记录日期|测试日期|监测日期|检测日期)[:：](\d{4}[-/.]\d{1,2}[-/.]\d{1,2})', text_no_space)
+            if m:
+                date_part = m.group(1).replace('/', '-').replace('.', '-')
+                d_parts = date_part.split('-')
+                if len(d_parts) == 3:
+                    date_part = f"{int(d_parts[0]):04d}-{int(d_parts[1]):02d}-{int(d_parts[2]):02d}"
+                data['ECGSTDAT'] = date_part
+            else:
+                # 尝试从文件名提取时间戳 (如 01245_2026年05月11日 06时32分09秒.pdf)
+                m_fn = re.search(r'(\d{4})年(\d{1,2})月(\d{1,2})日[\s_]*(\d{1,2})时(\d{1,2})分(?:(\d{1,2})秒)?', filename)
+                if m_fn:
+                    y, mon, d, h, mi = m_fn.group(1), int(m_fn.group(2)), int(m_fn.group(3)), int(m_fn.group(4)), int(m_fn.group(5))
+                    s = int(m_fn.group(6)) if m_fn.group(6) else 0
+                    data['ECGSTDAT'] = f"{y}-{mon:02d}-{d:02d} {h:02d}:{mi:02d}:{s:02d}"
+                else:
+                    data['ECGSTDAT'] = ""
             
         # 3. 监测时长 (无数值时填 0，替代原斜杠 /)
         m = re.search(r'记录时间[:：](\d+)[:：](\d+)', text_no_space)
@@ -638,19 +664,7 @@ def parse_single_pdf(pdf_path):
         }
 
 def parse_pdf_batch(pdf_paths, max_workers=32):
-    # 自动针对二进制内容 100% 相同的 PDF 报告文件 (MD5 哈希) 进行去重
-    seen_hashes = set()
-    unique_pdf_paths = []
-    for p in pdf_paths:
-        try:
-            with open(p, 'rb') as f:
-                h = hashlib.md5(f.read()).hexdigest()
-            if h not in seen_hashes:
-                seen_hashes.add(h)
-                unique_pdf_paths.append(p)
-        except Exception:
-            unique_pdf_paths.append(p)
-    pdf_paths = unique_pdf_paths
+    # 全量输出：不进行任何去重或丢弃，传入多少份就 100% 解析多少份
     total = len(pdf_paths)
     if total == 0:
         return []
@@ -674,7 +688,16 @@ def parse_pdf_batch(pdf_paths, max_workers=32):
                 path = future_to_path[future]
                 print(f"{path} 处理时触发异常: {exc}")
                 
-    results = sorted(results, key=lambda x: str(x.get('SUBJID') or x.get('_filename') or ''))
+    # 组合排序：先按受试者编号/姓名 (SUBJID) 排序，同一受试者名下再按开始监测日期 (ECGSTDAT) 从早到晚先后排序
+    def get_sort_key(item):
+        subjid = str(item.get('SUBJID') or '')
+        date_str = str(item.get('ECGSTDAT') or '')
+        # 如果日期为空，排在有效日期后面
+        effective_date = date_str if date_str else '9999-99-99 99:99:99'
+        fname = str(item.get('_filename') or '')
+        return (subjid, effective_date, fname)
+
+    results = sorted(results, key=get_sort_key)
     return results
 
 def write_all_to_excel(data_list, template_path, output_path):
@@ -685,6 +708,14 @@ def write_all_to_excel(data_list, template_path, output_path):
     
     try:
         sheet.unmerge_cells('K2:L2')
+    except Exception:
+        pass
+        
+    # 解除数据写入区的所有合并单元格 (如 G3:H3, A7:A9 等样例行合并)，防止写值时抛出 MergedCell read-only 异常
+    try:
+        data_merged_ranges = [rng for rng in list(sheet.merged_cells.ranges) if rng.min_row >= 3]
+        for rng in data_merged_ranges:
+            sheet.unmerge_cells(str(rng))
     except Exception:
         pass
         
