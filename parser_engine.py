@@ -174,10 +174,20 @@ def parse_single_pdf(pdf_path):
         text_no_space = re.sub(r'\s+', '', text)
         data = {}
 
-        # 提前提取结论文本与清洗中性词 (供全程持续性房颤/房扑/房速判定全局使用)
-        conclusion_match = re.search(r'结论[:：]?(.*?)(?=24小时数据图|24小时散点图|24小时趋势图|报告医生|报告医师|报告仅供参考|请结合临床|$)', text_no_space)
+        # 提前提取结论文本与构建中性词安全清洗视图
+        conclusion_match = re.search(r'结论[:：]?(.*?)(?=24小时数据图|24小时散点图|24小时趋势图|报告医生|报告医师|报告仅供参考|$)', text_no_space)
         conclusion_text = conclusion_match.group(1) if conclusion_match else text_no_space
-        clean_conclusion_text = re.sub(r'不排除[^\n，,；;。]*', '', conclusion_text)
+        
+        # 综合中性词/疑似词/待排短语安全剥离 (不作为确诊项，防止误触发规则2或3，也不污染确诊结论)
+        neutral_patterns = [
+            r'(?:不排除|不能排除|未除外|尚不能完全排除|未完全除外)[^\n，,；;。]*',
+            r'(?:可疑|疑似|考虑[^\n，,；;。]*?可能)[^\n，,；;。]*',
+            r'(?:请结合临床|建议结合临床|建议复查|请随访|请结合临床评估|建议进一步检查)[^\n，,；;。]*',
+            r'(?:未见明显|无明显)(?:ST-T|T波|ST段|异常|改变|病变|缺血|偏移|抬高|压低|心律失常)[^\n，,；;。]*'
+        ]
+        clean_conclusion_text = conclusion_text
+        for np in neutral_patterns:
+            clean_conclusion_text = re.sub(np, '', clean_conclusion_text)
         
         # 1. 受试者编号 (用户姓名) - 匹配到 '年龄'、'性别' 等字段为止 (支持文件名含“原始”时追加 -原始 后缀)
         m = re.search(r'(?:用户姓名|受试者姓名|患者姓名|姓名)[:：](.*?)(?=年龄|性别|病历号|床号|科室|报告日期)', text_no_space)
@@ -469,29 +479,57 @@ def parse_single_pdf(pdf_path):
 
         selected_codes = []
         
-        # 规则 2: 房颤 (双通道判定: 上层房颤/房扑数据表 + 下层确诊结论)
-        afib_negated = re.search(r'(未见|无|未发现|未检测到|不伴|否认|未出现|无明显|排除)[^\\n，,；;。]*?(房颤|心房颤动|心房扑动|房扑)', clean_conclusion_text)
-        has_afib_text = any(k in clean_conclusion_text for k in ["心房颤动", "房颤"]) and not afib_negated
+        # 否定词前缀与全标点阻断集合
+        neg_prefixes = r'(?:未见|无|未发现|未检测到|不伴|否认|未出现|排除|未见明显|未发生|未录到|未记录到|未查见|无明显)'
+        punct_stop = r'[^\n\r，,；;。、\.!?！？\)）\]】\d~—\-]'
+
+        # 1. 规则 2: 房颤 (双通道判定: 上层房颤/房扑数据表 + 下层分句确诊结论)
+        afib_keywords = ["心房颤动", "房颤", "心房纤颤", "房纤", "房颤动", "间歇性心房颤动", "阵发性心房颤动", "持续性心房颤动", "全程持续性心房颤动"]
+        has_afib_text = False
+        for s in concl_sentences:
+            if any(k in s for k in afib_keywords):
+                is_neg = bool(re.search(rf'{neg_prefixes}{punct_stop}*?(?:{"|".join(afib_keywords)})', s))
+                if not is_neg:
+                    has_afib_text = True
+                    break
         has_afib_data = (af_beats > 0) or has_printed_afib_text or has_printed_afib_val
         if has_afib_text or has_afib_data:
             selected_codes.append("2")
             
-        # 规则 3: 规则的房性心动过速 (双通道判定: 房扑数据/结论 OR 室上速/房速 >= 30s)
-        has_aflutter_text = any(k in clean_conclusion_text for k in ["心房扑动", "房扑"]) and not afib_negated
+        # 2. 规则 3: 规则的房性心动过速 (双通道判定: 房扑数据/结论 OR 室上速/房速 >= 30s)
+        aflutter_keywords = ["心房扑动", "房扑", "心房扑动波", "全程持续性心房扑动", "持续性房扑"]
+        has_aflutter_text = False
+        for s in concl_sentences:
+            if any(k in s for k in aflutter_keywords):
+                is_neg = bool(re.search(rf'{neg_prefixes}{punct_stop}*?(?:{"|".join(aflutter_keywords)})', s))
+                if not is_neg:
+                    has_aflutter_text = True
+                    break
         has_aflutter_data = (fl_beats > 0) or (fl_burden > 0) or fl_active
         cond3_1 = has_aflutter_text or has_aflutter_data
         
-        svt_negated_in_concl = re.search(r'(未见|无|未发现|未检测到|不伴|否认|未出现|无明显|排除)[^\\n，,；;。]*?(房性心动过速|房速|室上速)', clean_conclusion_text)
-        has_svt_in_conclusion = any(k in clean_conclusion_text for k in ["房性心动过速", "房速", "室上速"]) and not svt_negated_in_concl
+        svt_keywords = ["房性心动过速", "房速", "室上速", "室上性心动过速", "短阵房速", "短阵室上速", "阵发性房速", "阵发性室上速"]
+        has_svt_in_conclusion = False
+        for s in concl_sentences:
+            if any(k in s for k in svt_keywords):
+                is_neg = bool(re.search(rf'{neg_prefixes}{punct_stop}*?(?:{"|".join(svt_keywords)})', s))
+                if not is_neg:
+                    has_svt_in_conclusion = True
+                    break
 
         cond3_2 = (has_svt_in_conclusion or svt_active) and (effective_svt_dur_sec >= 30)
         if cond3_1 or cond3_2:
             selected_codes.append("3")
             
-        # 规则 1: 窦性心律 / 起搏心律 (包含完整与省略写法, 包含'起搏', 剔除'异位心律')
+        # 3. 规则 1: 窦性心律 / 起搏心律 (包含完整与省略写法, 包含'起搏', 剔除'异位心律')
         sinus_keywords = ["窦性心律", "窦性心动", "窦性动过缓", "窦动过缓", "窦性", "起搏", "起搏心律", "起搏心电图", "起搏器", "窦性心律不齐", "窦性停搏", "窦缓"]
-        sinus_negated = re.search(r'(未见|无|未发现|未检测到|否认|无明显|排除)[^\\n，,；;。\\d]*?(窦性心律|窦性心动|窦性动过缓|窦动过缓|窦性|起搏)', clean_conclusion_text)
-        has_sinus = any(k in clean_conclusion_text for k in sinus_keywords) and not sinus_negated
+        has_sinus = False
+        for s in concl_sentences:
+            if any(k in s for k in sinus_keywords):
+                is_neg = bool(re.search(rf'{neg_prefixes}{punct_stop}*?(?:{"|".join(sinus_keywords)})', s))
+                if not is_neg:
+                    has_sinus = True
+                    break
         has_any_af = ("2" in selected_codes) or ("3" in selected_codes)
         svt_under_30 = (effective_svt_dur_sec < 30)
         if has_sinus and not has_any_af and svt_under_30:
