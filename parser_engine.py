@@ -1,3 +1,4 @@
+PUNCT_STOP = r'[^\n\r，,；;。、\.!?！？\)）\]】\d~—\-_/]'
 import hashlib
 import os
 import re
@@ -48,7 +49,7 @@ def parse_duration_to_seconds(text):
         return 0, ""
     
     # 1. 宽泛匹配任何持续/最长/发作/时间引导的句段 (如 最长持续时间为18分53秒、持续时间18分53秒、持续18分53秒、最长阵18分53秒等)
-    m_clause = re.search(r'(?:最长|最大|平均|总|发作|持续|持续性|最长阵|长阵|阵发|长达)[^0-9\n]{0,25}?(?:持续|持续性|发作|时间|达|为|有)?[\s\n:：为有达]*?([0-9]+(?:\.[0-9]+)?\s*(?:小时|h|hr|时|分钟?|min|分|秒钟?|sec|s)(?:[0-9\s小时h分min秒ssec钟：:\.\d]*?))(?=[,，;；。]|$)', text, re.I)
+    m_clause = re.search(r'(?:最长|最大|平均|总|发作|持续|持续性|最长阵|长阵|阵发|长达)[^0-9\n]{0,25}?(?:持续|持续性|发作|时间|达|为|有)?[\s\n:：为有达]*?([0-9]+(?:\.[0-9]+)?\s*(?:小时|h|hr|时|分钟?|min|分|秒钟?|sec|s)(?:[0-9\s小时h分min秒ssec钟：:\.\d]*?))(?=[,，;；。、\.!?！？\d~—\-_/]|$)', text, re.I)
     
     dur_snippet = m_clause.group(1) if m_clause else ""
     
@@ -175,7 +176,7 @@ def parse_single_pdf(pdf_path):
         data = {}
 
         # 提前提取结论文本与构建中性词安全清洗视图
-        conclusion_match = re.search(r'结论[:：]?(.*?)(?=24小时数据图|24小时散点图|24小时趋势图|报告医生|报告医师|报告仅供参考|$)', text_no_space)
+        conclusion_match = re.search(r'结论[:：]?(.*?)(?=24小时数据图|24小时散点图|24小时趋势图|报告医生|报告医师|审核医生|审核医师|诊断医生|检查医生|送检单位|报告仅供参考|$)', text_no_space)
         conclusion_text = conclusion_match.group(1) if conclusion_match else text_no_space
         
         # 综合中性词/疑似词/待排短语安全剥离 (使用严格标点阻断集，防止英文句号跨条目误吞确诊内容)
@@ -325,7 +326,7 @@ def parse_single_pdf(pdf_path):
         af_hours, af_mins, af_secs = parse_hms(af_dur_str)
         
         # 全程持续性心房颤动 / 全程房颤 智能对齐监测时长
-        if re.search(r'全程(?:持续性)?[^\n，,；;。]*?(?:心房颤动|房颤)', clean_conclusion_text):
+        if re.search(rf'全程(?:持续性)?{PUNCT_STOP}*?(?:心房颤动|房颤|心房纤颤|房纤|房颤动)', clean_conclusion_text):
             if af_hours == 0 and af_mins == 0 and af_secs == 0:
                 af_hours = int(data.get('ECGDURH', 0)) if str(data.get('ECGDURH', '')).isdigit() else 0
                 af_mins = int(data.get('ECGDURM', 0)) if str(data.get('ECGDURM', '')).isdigit() else 0
@@ -381,13 +382,13 @@ def parse_single_pdf(pdf_path):
         fl_hours, fl_mins, fl_secs = parse_hms(fl_dur_str)
         
         # 全程持续性心房扑动 / 全程房扑 智能对齐监测时长
-        if re.search(r'全程(?:持续性)?[^\n，,；;。]*?(?:心房扑动|房扑)', clean_conclusion_text):
+        if re.search(rf'全程(?:持续性)?{PUNCT_STOP}*?(?:心房扑动|房扑|心房扑动波)', clean_conclusion_text):
             if fl_hours == 0 and fl_mins == 0 and fl_secs == 0:
                 fl_hours = int(data.get('ECGDURH', 0)) if str(data.get('ECGDURH', '')).isdigit() else 0
                 fl_mins = int(data.get('ECGDURM', 0)) if str(data.get('ECGDURM', '')).isdigit() else 0
                 fl_secs = 0
                 
-        fl_active = (fl_beats > 0 or fl_hours > 0 or fl_mins > 0 or bool(re.search(r'全程(?:持续性)?[^\n，,；;。]*?(?:心房扑动|房扑)', clean_conclusion_text)))
+        fl_active = (fl_beats > 0 or fl_hours > 0 or fl_mins > 0 or bool(re.search(rf'全程(?:持续性)?{PUNCT_STOP}*?(?:心房扑动|房扑|心房扑动波)', clean_conclusion_text)))
         
         # 8.1 规则的房性心动过速 (室上速 + 房扑) 负荷精细化判定
         # 1. 房扑负荷原值/保底计算
@@ -406,7 +407,7 @@ def parse_single_pdf(pdf_path):
                     fl_burden_val = "小于1"
                 else:
                     fl_burden_val = int(round(calc_fl_pct))
-            elif re.search(r'全程(?:持续性)?[^\n，,；;。]*?(?:心房扑动|房扑)', clean_conclusion_text):
+            elif re.search(rf'全程(?:持续性)?{PUNCT_STOP}*?(?:心房扑动|房扑|心房扑动波)', clean_conclusion_text):
                 fl_burden_val = 100
 
         # 2. 房速负荷原生打印值 (不自动公式计算)
@@ -429,7 +430,7 @@ def parse_single_pdf(pdf_path):
         conclusion_text = conclusion_match.group(1) if conclusion_match else text_no_space
         
         # 9.1 从结论中精准切片出“房速/室上速专属语句” (兼容中英文句号、分号及序号前瞻，句子级绝对隔离)
-        concl_sentences = [s.strip() for s in re.split(r'[。；;\n\r]|\.(?=\s*\d+[、\.\)]|\s*[^\d]|$)|(?<=[。；;\n\r\.\s])(?=\d+[、\.\)])|(?=[1-9]、)', clean_conclusion_text) if s.strip()]
+        concl_sentences = [s.strip() for s in re.split(r'[。；;\n\r]|\.(?=\s*\d+[、\.\)]|\s*[^\d]|$)|(?<=[。；;\n\r\.\s])(?=\d+[、\.\)])|(?=[1-9]、)|(?=\([1-9]\))', clean_conclusion_text) if s.strip()]
         svt_sentences = [s for s in concl_sentences if any(k in s for k in ['房性心动过速', '房速', '室上速', '室上性心动过速', '短阵房速', '短阵室上速'])]
 
         # 初始化异常告警标志与告警日志
@@ -583,7 +584,7 @@ def parse_single_pdf(pdf_path):
                     af_burden_val = "小于1"
                 else:
                     af_burden_val = int(round(calc_af_pct))
-            elif af_burden_val is None and re.search(r'全程(?:持续性)?[^\n，,；;。]*?(?:心房颤动|房颤)', clean_conclusion_text):
+            elif af_burden_val is None and re.search(rf'全程(?:持续性)?{PUNCT_STOP}*?(?:心房颤动|房颤|心房纤颤|房纤|房颤动)', clean_conclusion_text):
                 af_burden_val = 100
 
             if af_burden_val is None:
