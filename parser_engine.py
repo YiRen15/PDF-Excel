@@ -178,12 +178,13 @@ def parse_single_pdf(pdf_path):
         conclusion_match = re.search(r'结论[:：]?(.*?)(?=24小时数据图|24小时散点图|24小时趋势图|报告医生|报告医师|报告仅供参考|$)', text_no_space)
         conclusion_text = conclusion_match.group(1) if conclusion_match else text_no_space
         
-        # 综合中性词/疑似词/待排短语安全剥离 (不作为确诊项，防止误触发规则2或3，也不污染确诊结论)
+        # 综合中性词/疑似词/待排短语安全剥离 (使用严格标点阻断集，防止英文句号跨条目误吞确诊内容)
+        punct_stop_clean = r'[^\n\r，,；;。、\.!?！？\)）\]】\d~—\-]'
         neutral_patterns = [
-            r'(?:不排除|不能排除|未除外|尚不能完全排除|未完全除外)[^\n，,；;。]*',
-            r'(?:可疑|疑似|考虑[^\n，,；;。]*?可能)[^\n，,；;。]*',
-            r'(?:请结合临床|建议结合临床|建议复查|请随访|请结合临床评估|建议进一步检查)[^\n，,；;。]*',
-            r'(?:未见明显|无明显)(?:ST-T|T波|ST段|异常|改变|病变|缺血|偏移|抬高|压低|心律失常)[^\n，,；;。]*'
+            rf'(?:不排除|不能排除|未除外|尚不能完全排除|未完全除外){punct_stop_clean}*',
+            rf'(?:可疑|疑似|考虑{punct_stop_clean}*?可能){punct_stop_clean}*',
+            rf'(?:请结合临床|建议结合临床|建议复查|请随访|请结合临床评估|建议进一步检查){punct_stop_clean}*',
+            rf'(?:未见明显|无明显)(?:ST-T|T波|ST段|异常|改变|病变|缺血|偏移|抬高|压低|心律失常){punct_stop_clean}*'
         ]
         clean_conclusion_text = conclusion_text
         for np in neutral_patterns:
@@ -427,11 +428,8 @@ def parse_single_pdf(pdf_path):
         conclusion_match = re.search(r'结论[:：]?(.*?)(?=24小时数据图|24小时散点图|24小时趋势图|报告医生|报告医师|报告仅供参考|请结合临床|$)', text_no_space)
         conclusion_text = conclusion_match.group(1) if conclusion_match else text_no_space
         
-        # 中性短语提前擦除 (如 '不排除...')，既不误杀前面确诊结论，也不误诊无确诊报告
-        clean_conclusion_text = re.sub(r'不排除[^\n，,；;。]*', '', conclusion_text)
-        
-        # 9.1 从结论中精准切片出“房速/室上速专属语句” (句子级绝对隔离，绝不串扰停搏/ST等其他时间)
-        concl_sentences = [s.strip() for s in re.split(r'[。;\n]|(?=[1-9]、)', clean_conclusion_text) if s.strip()]
+        # 9.1 从结论中精准切片出“房速/室上速专属语句” (兼容中英文句号、分号及序号前瞻，句子级绝对隔离)
+        concl_sentences = [s.strip() for s in re.split(r'[。；;\n\r]|\.(?=\s*\d+[、\.\)]|\s*[^\d]|$)|(?<=[。；;\n\r\.\s])(?=\d+[、\.\)])|(?=[1-9]、)', clean_conclusion_text) if s.strip()]
         svt_sentences = [s for s in concl_sentences if any(k in s for k in ['房性心动过速', '房速', '室上速', '室上性心动过速', '短阵房速', '短阵室上速'])]
 
         # 初始化异常告警标志与告警日志
