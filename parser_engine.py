@@ -480,82 +480,109 @@ def parse_single_pdf(pdf_path):
         
         # 否定词前缀与全标点阻断集合
         neg_prefixes = r'(?:未见|无|未发现|未检测到|不伴|否认|未出现|排除|未见明显|未发生|未录到|未记录到|未查见|无明显)'
-        punct_stop = r'[^\n\r，,；;。、\.!?！？\)）\]】\d~—\-]'
+        punct_stop = PUNCT_STOP
 
-        # 1. 规则 2: 房颤 (双通道判定: 上层房颤/房扑数据表 + 下层分句确诊结论)
-        afib_keywords = ["心房颤动", "房颤", "心房纤颤", "房纤", "房颤动", "间歇性心房颤动", "阵发性心房颤动", "持续性心房颤动", "全程持续性心房颤动"]
-        has_afib_text = False
+        # 0. 模糊诊断拦截：检测结论中是否存在未被否定的“房颤/房扑”、“房颤或房扑”等二选一模糊表述 (70+ 全排列矩阵)
+        pat_ambiguous = re.compile(
+            r'(?:阵发性|间歇性|短阵|持续性|频发|偶发)?(?:心房颤动|心房纤颤|房颤|房纤|颤动)\s*(?:/|／|\\|或者|或|-)\s*(?:阵发性|间歇性|短阵|持续性|频发|偶发)?(?:心房扑动|房扑|扑动|房性心动过速|房速|室上速|室上性心动过速)'
+            r'|'
+            r'(?:阵发性|间歇性|短阵|持续性|频发|偶发)?(?:心房扑动|房扑|扑动|房性心动过速|房速|室上速|室上性心动过速)\s*(?:/|／|\\|或者|或|-)\s*(?:阵发性|间歇性|短阵|持续性|频发|偶发)?(?:心房颤动|心房纤颤|房颤|房纤|颤动)'
+        )
+
+        is_ambiguous_diagnosis = False
         for s in concl_sentences:
-            if any(k in s for k in afib_keywords):
-                is_neg = bool(re.search(rf'{neg_prefixes}{punct_stop}*?(?:{"|".join(afib_keywords)})', s))
+            m_amb = pat_ambiguous.search(s)
+            if m_amb:
+                # 检查该分句内部是否被否定词否定 (如 '未见心房颤动或心房扑动')
+                amb_span_start = m_amb.start()
+                prefix_sub = s[:amb_span_start]
+                is_neg = bool(re.search(rf'{neg_prefixes}{punct_stop}*$', prefix_sub))
                 if not is_neg:
-                    has_afib_text = True
-                    break
-        has_afib_data = (af_beats > 0) or has_printed_afib_text or has_printed_afib_val
-        if has_afib_text or has_afib_data:
-            selected_codes.append("2")
-            
-        # 2. 规则 3: 规则的房性心动过速 (双通道判定: 房扑数据/结论 OR 室上速/房速 >= 30s)
-        aflutter_keywords = ["心房扑动", "房扑", "心房扑动波", "全程持续性心房扑动", "持续性房扑"]
-        has_aflutter_text = False
-        for s in concl_sentences:
-            if any(k in s for k in aflutter_keywords):
-                is_neg = bool(re.search(rf'{neg_prefixes}{punct_stop}*?(?:{"|".join(aflutter_keywords)})', s))
-                if not is_neg:
-                    has_aflutter_text = True
-                    break
-        has_aflutter_data = (fl_beats > 0) or (fl_burden > 0) or fl_active
-        cond3_1 = has_aflutter_text or has_aflutter_data
-        
-        svt_keywords = ["房性心动过速", "房速", "室上速", "室上性心动过速", "短阵房速", "短阵室上速", "阵发性房速", "阵发性室上速"]
-        has_svt_in_conclusion = False
-        for s in concl_sentences:
-            if any(k in s for k in svt_keywords):
-                is_neg = bool(re.search(rf'{neg_prefixes}{punct_stop}*?(?:{"|".join(svt_keywords)})', s))
-                if not is_neg:
-                    has_svt_in_conclusion = True
+                    is_ambiguous_diagnosis = True
                     break
 
-        cond3_2 = (has_svt_in_conclusion or svt_active) and (effective_svt_dur_sec >= 30)
-        if cond3_1 or cond3_2:
-            selected_codes.append("3")
-            
-        # 3. 规则 1: 窦性心律 / 起搏心律 (包含完整与省略写法, 包含'起搏', 剔除'异位心律')
-        sinus_keywords = ["窦性心律", "窦性心动", "窦性动过缓", "窦动过缓", "窦性", "起搏", "起搏心律", "起搏心电图", "起搏器", "窦性心律不齐", "窦性停搏", "窦缓"]
-        has_sinus = False
-        for s in concl_sentences:
-            if any(k in s for k in sinus_keywords):
-                is_neg = bool(re.search(rf'{neg_prefixes}{punct_stop}*?(?:{"|".join(sinus_keywords)})', s))
-                if not is_neg:
-                    has_sinus = True
-                    break
-        has_any_af = ("2" in selected_codes) or ("3" in selected_codes)
-        svt_under_30 = (effective_svt_dur_sec < 30)
-        if has_sinus and not has_any_af and svt_under_30:
-            selected_codes.append("1")
-            
-        # 需求三与熔断告警：判空即标记为 ⚠️未分类，严禁出现斜杠或空值
-        if not selected_codes:
+        if is_ambiguous_diagnosis:
+            # 命中二选一模糊诊断，直接安全熔断为人工复核
             code_raw = "⚠️未分类"
             code_bracket = "⚠️未分类"
             code_opt = "需要人工复核"
             data['has_warning'] = True
-            data['warnings'].append("无法自动判定心律分类，需要人工复核结论")
+            data['warnings'].append("结论中包含“房颤/房扑”或“房颤或房扑”模糊表述，无法确定唯一主诊断，需要人工复核")
         else:
-            code_raw = ",".join(selected_codes)
-            code_bracket = f"[{code_raw}]"
-            
-            if code_raw == "1":
-                code_opt = "窦性心律，无心房颤动、规则的房性心动过速"
-            elif code_raw == "2":
-                code_opt = "房颤"
-            elif code_raw == "3":
-                code_opt = "规则的房性心动过速"
-            elif code_raw in ("2,3", "3,2") or ("2" in code_raw and "3" in code_raw and "1" not in code_raw):
-                code_opt = "房颤,规则的房性心动过速"
-            else:
-                code_opt = "需要人工复核"
+            # 1. 规则 2: 房颤 (双通道判定: 上层房颤/房扑数据表 + 下层分句确诊结论)
+            afib_keywords = ["心房颤动", "房颤", "心房纤颤", "房纤", "房颤动", "间歇性心房颤动", "阵发性心房颤动", "持续性心房颤动", "全程持续性心房颤动"]
+            has_afib_text = False
+            for s in concl_sentences:
+                if any(k in s for k in afib_keywords):
+                    is_neg = bool(re.search(rf'{neg_prefixes}{punct_stop}*?(?:{"|".join(afib_keywords)})', s))
+                    if not is_neg:
+                        has_afib_text = True
+                        break
+            has_afib_data = (af_beats > 0) or has_printed_afib_text or has_printed_afib_val
+            if has_afib_text or has_afib_data:
+                selected_codes.append("2")
                 
+            # 2. 规则 3: 规则的房性心动过速 (双通道判定: 房扑数据/结论 OR 室上速/房速 >= 30s)
+            aflutter_keywords = ["心房扑动", "房扑", "心房扑动波", "全程持续性心房扑动", "持续性房扑"]
+            has_aflutter_text = False
+            for s in concl_sentences:
+                if any(k in s for k in aflutter_keywords):
+                    is_neg = bool(re.search(rf'{neg_prefixes}{punct_stop}*?(?:{"|".join(aflutter_keywords)})', s))
+                    if not is_neg:
+                        has_aflutter_text = True
+                        break
+            has_aflutter_data = (fl_beats > 0) or (fl_burden > 0) or fl_active
+            cond3_1 = has_aflutter_text or has_aflutter_data
+            
+            svt_keywords = ["房性心动过速", "房速", "室上速", "室上性心动过速", "短阵房速", "短阵室上速", "阵发性房速", "阵发性室上速"]
+            has_svt_in_conclusion = False
+            for s in concl_sentences:
+                if any(k in s for k in svt_keywords):
+                    is_neg = bool(re.search(rf'{neg_prefixes}{punct_stop}*?(?:{"|".join(svt_keywords)})', s))
+                    if not is_neg:
+                        has_svt_in_conclusion = True
+                        break
+
+            cond3_2 = (has_svt_in_conclusion or svt_active) and (effective_svt_dur_sec >= 30)
+            if cond3_1 or cond3_2:
+                selected_codes.append("3")
+                
+            # 3. 规则 1: 窦性心律 / 起搏心律 (包含完整与省略写法, 包含'起搏', 剔除'异位心律')
+            sinus_keywords = ["窦性心律", "窦性心动", "窦性动过缓", "窦动过缓", "窦性", "起搏", "起搏心律", "起搏心电图", "起搏器", "窦性心律不齐", "窦性停搏", "窦缓"]
+            has_sinus = False
+            for s in concl_sentences:
+                if any(k in s for k in sinus_keywords):
+                    is_neg = bool(re.search(rf'{neg_prefixes}{punct_stop}*?(?:{"|".join(sinus_keywords)})', s))
+                    if not is_neg:
+                        has_sinus = True
+                        break
+            has_any_af = ("2" in selected_codes) or ("3" in selected_codes)
+            svt_under_30 = (effective_svt_dur_sec < 30)
+            if has_sinus and not has_any_af and svt_under_30:
+                selected_codes.append("1")
+                
+            # 需求三与熔断告警：判空即标记为 ⚠️未分类，严禁出现斜杠或空值
+            if not selected_codes:
+                code_raw = "⚠️未分类"
+                code_bracket = "⚠️未分类"
+                code_opt = "需要人工复核"
+                data['has_warning'] = True
+                data['warnings'].append("无法自动判定心律分类，需要人工复核结论")
+            else:
+                code_raw = ",".join(selected_codes)
+                code_bracket = f"[{code_raw}]"
+                
+                if code_raw == "1":
+                    code_opt = "窦性心律，无心房颤动、规则的房性心动过速"
+                elif code_raw == "2":
+                    code_opt = "房颤"
+                elif code_raw == "3":
+                    code_opt = "规则的房性心动过速"
+                elif code_raw in ("2,3", "3,2") or ("2" in code_raw and "3" in code_raw and "1" not in code_raw):
+                    code_opt = "房颤,规则的房性心动过速"
+                else:
+                    code_opt = "需要人工复核"
+                    
         data['ECGORRES'] = code_bracket
         data['ECGORRES_OPT'] = code_opt
 
